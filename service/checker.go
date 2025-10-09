@@ -4,8 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
+	"sync/atomic"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -17,59 +18,60 @@ var fileName string
 
 func init() {
 	if err := godotenv.Load(); err != nil {
-		log.Fatal(fmt.Sprintf("Error loading .env file: %v", err))
+		slog.Error(fmt.Sprintf("Error loading .env file: %v", err))
 	}
 	fileName = os.Getenv("SERV_FILE_NAME")
 }
 
 func CheckAvailableLabs() ([]*LabData, error) {
+	slog.Info("Checking labs")
+	start := time.Now()
 	serviceIDs, err := readServiceIDs()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read service IDs: %v", err)
 	}
 
-	idChan := make(chan int)
-	resultChan := make(chan *LabData)
-	limiter := rate.NewLimiter(rate.Every(2*time.Second), 1)
+	labList := make([]*LabData, 0)
+	results := make(chan *LabData)
+	IDsChecked := atomic.Int64{}
 
-	results := make([]*LabData, 0)
-
+	var processingErr error
+	var eg errgroup.Group
+	limiter := rate.NewLimiter(rate.Every(time.Second*1), 1)
 	go func() {
 		for _, serviceID := range serviceIDs {
-			idChan <- serviceID
-		}
-		close(idChan)
-	}()
-
-	go func() {
-		for range serviceIDs {
-			result := <-resultChan
-			results = append(results, result)
-		}
-	}()
-
-	var g errgroup.Group
-	for range 10 {
-		g.Go(func() error {
-			for id := range idChan {
+			eg.Go(func() error {
 				limiter.Wait(context.Background())
-				data, err := FetchServiceData(id)
+				start := time.Now()
+				IDsChecked.Add(1)
+				slog.Info(fmt.Sprintf("Processing service. id = %d [%d/%d]", serviceID, IDsChecked.Load(), len(serviceIDs)))
+				data, err := FetchServiceData(serviceID)
 				if err != nil {
 					return err
 				}
-				parsed, err := ParseServiceData(data)
-				for _, labData := range parsed {
-					resultChan <- labData
+				res, err := ParseServiceData(data)
+				if err != nil {
+					return err
 				}
-			}
-			return nil
-		})
-	}
-	if err := g.Wait(); err != nil {
-		return nil, err
+				for _, lab := range res {
+					results <- lab
+				}
+				slog.Info(fmt.Sprintf("Finished processing service. id %d. Time elapsed %s\n", serviceID, time.Since(start)))
+				return nil
+			})
+		}
+		if err := eg.Wait(); err != nil {
+			processingErr = err
+		}
+		close(results)
+	}()
+
+	for result := range results {
+		labList = append(labList, result)
 	}
 
-	return results, nil
+	slog.Info(fmt.Sprintf("Finished checking labs in %s. Total available labs %d", time.Since(start), len(labList)))
+	return labList, processingErr
 }
 
 func readServiceIDs() ([]int, error) {
