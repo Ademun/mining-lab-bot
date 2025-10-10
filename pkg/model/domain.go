@@ -5,7 +5,7 @@ import (
 )
 
 type Slot struct {
-	ID            string
+	ID            int
 	LabNumber     int
 	LabName       string
 	LabAuditorium int
