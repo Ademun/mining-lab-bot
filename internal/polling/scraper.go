@@ -1,9 +1,11 @@
-package scraper
+package polling
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 
@@ -12,18 +14,17 @@ import (
 )
 
 var url string
-var fileName string
 
 func init() {
 	if err := godotenv.Load(); err != nil {
-		log.Fatal(fmt.Sprintf("Error loading .env file: %v", err))
+		slog.Error(fmt.Sprintf("Error loading .env file: %v", err))
+		os.Exit(1)
 	}
 	url = os.Getenv("SERV_ID_SRC")
-	fileName = os.Getenv("SERV_FILE_NAME")
 }
 
-func UpdateServiceIDs() error {
-	doc := fetchDocument()
+func FetchServiceIDs(ctx context.Context) ([]int, error) {
+	doc := fetchDocument(ctx)
 
 	serviceIDs := make([]int, 0)
 	doc.Find(".newrecord2").Each(func(i int, s *goquery.Selection) {
@@ -34,7 +35,8 @@ func UpdateServiceIDs() error {
 		var pageOptions PageOptions
 		err := json.Unmarshal([]byte(dataOptions), &pageOptions)
 		if err != nil {
-			log.Fatal(fmt.Sprintf("Failed to unmarshal json pageOptions %v", err))
+			slog.Error(fmt.Sprintf("Failed to unmarshal json pageOptions %v", err))
+			return
 		}
 		categories := pageOptions.StepData.List
 		for _, category := range categories {
@@ -44,14 +46,22 @@ func UpdateServiceIDs() error {
 		}
 	})
 
-	return write(serviceIDs)
+	return serviceIDs, nil
 }
 
-func fetchDocument() *goquery.Document {
-	res, err := http.Get(url)
+func fetchDocument(ctx context.Context) *goquery.Document {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		log.Fatal(fmt.Sprintf("Failed to fetch card id page: %v", err))
+		log.Fatal(fmt.Sprintf("Failed to construct a request: %v", err))
 	}
+
+	client := &http.Client{}
+
+	res, err := client.Do(req)
+	if err != nil {
+		log.Fatal(fmt.Sprintf("Failed to fetch document: %v", err))
+	}
+
 	defer res.Body.Close()
 
 	if res.StatusCode != 200 {
@@ -63,15 +73,4 @@ func fetchDocument() *goquery.Document {
 		log.Fatal(fmt.Sprintf("Failed to parse response body: %v", err))
 	}
 	return doc
-}
-
-func write(IDs []int) error {
-	file, err := os.Create(fileName)
-	if err != nil {
-		return fmt.Errorf("failed to create file: %w", err)
-	}
-	defer file.Close()
-
-	encoder := json.NewEncoder(file)
-	return encoder.Encode(IDs)
 }

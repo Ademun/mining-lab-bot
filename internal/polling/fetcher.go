@@ -1,4 +1,4 @@
-package service
+package polling
 
 import (
 	"encoding/json"

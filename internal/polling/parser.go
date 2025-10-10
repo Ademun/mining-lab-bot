@@ -1,4 +1,4 @@
-package service
+package polling
 
 import (
 	errors2 "errors"
@@ -7,11 +7,13 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Ademun/mining-lab-bot/pkg/model"
 )
 
 var labNameRegexp = regexp.MustCompile(`\p{L}+\s+\p{L}+\s+№\s*(\d+).*?\((\d+)\s*\p{L}+\.\)(?:.*?\))?\s*(\p{L}.+)$`)
 
-func ParseServiceData(data *ServiceData) (map[int]*LabData, error) {
+func ParseServiceData(data *ServiceData) ([]model.Slot, error) {
 	masters := data.Data.Masters
 
 	if len(masters.MasterMap) == 0 {
@@ -20,22 +22,22 @@ func ParseServiceData(data *ServiceData) (map[int]*LabData, error) {
 
 	times := data.Data.Times
 
-	labs := make(map[int]*LabData, len(masters.MasterMap))
+	slots := make([]model.Slot, 0, len(masters.MasterMap))
 
 	errors := make([]error, 0)
 	for id, master := range masters.MasterMap {
-		labNumber, labAuditory, labName, err := parseLabName(master)
+		labNumber, labAuditorium, labName, err := parseMasterName(master.Username)
 		if err != nil {
-			errors = append(errors, fmt.Errorf("failed to parse lab name %s: %w", master.Username, err))
+			errors = append(errors, err)
 			continue
 		}
 
-		var labType LabType
+		var labType model.LabType
 		switch {
 		case strings.Contains(master.ServiceName, "Выполнение"):
-			labType = LabPerformance
+			labType = model.LabPerformance
 		case strings.Contains(master.ServiceName, "Защита"):
-			labType = LabDefence
+			labType = model.LabDefence
 		default:
 			errors = append(errors, fmt.Errorf("failed to parse lab type: lab name should contain either 'Выполнение' or 'Защита'"))
 			continue
@@ -51,28 +53,31 @@ func ParseServiceData(data *ServiceData) (map[int]*LabData, error) {
 			availableTimes = append(availableTimes, timestamp)
 		}
 
-		lab := &LabData{
-			Name:      labName,
-			Number:    labNumber,
-			Auditory:  labAuditory,
-			Type:      labType,
-			Available: availableTimes,
-		}
+		for _, dateTime := range availableTimes {
+			slot := model.Slot{
+				ID:            id,
+				LabNumber:     labNumber,
+				LabName:       labName,
+				LabAuditorium: labAuditorium,
+				LabType:       labType,
+				DateTime:      dateTime,
+			}
 
-		labs[id] = lab
+			slots = append(slots, slot)
+		}
 	}
 
 	if len(errors) > 0 {
 		return nil, errors2.Join(errors...)
 	}
 
-	return labs, nil
+	return slots, nil
 }
 
-func parseLabName(master MasterData) (int, int, string, error) {
-	matches := labNameRegexp.FindStringSubmatch(master.Username)
+func parseMasterName(masterName string) (int, int, string, error) {
+	matches := labNameRegexp.FindStringSubmatch(masterName)
 	if len(matches) < 4 {
-		return 0, 0, "", fmt.Errorf("failed to parse lab name: %s", master.Username)
+		return 0, 0, "", fmt.Errorf("failed to parse lab name: %s", masterName)
 	}
 	labNumber, _ := strconv.Atoi(matches[1])
 	labAuditory, _ := strconv.Atoi(matches[2])
