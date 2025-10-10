@@ -1,23 +1,21 @@
 package main
 
 import (
-	"fmt"
+	"context"
 	"log"
+	"time"
 
-	"github.com/Ademun/mining-lab-bot/scraper"
-	"github.com/Ademun/mining-lab-bot/service"
+	"github.com/Ademun/mining-lab-bot/internal/polling"
+	"github.com/Ademun/mining-lab-bot/pkg/event"
 )
 
 func main() {
-	err := scraper.UpdateServiceIDs()
-	if err != nil {
+	eb := event.NewEventBus()
+	ctx := context.Background()
+	ps := polling.New(eb, nil)
+	if err := ps.Start(ctx); err != nil {
 		log.Fatal(err)
 	}
-	data, err := service.CheckAvailableLabs()
-	if err != nil {
-		log.Fatal(err)
-	}
-	for _, v := range data {
-		fmt.Println(v)
-	}
+
+	time.Sleep(1 * time.Hour)
 }
