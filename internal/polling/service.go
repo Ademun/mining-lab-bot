@@ -29,7 +29,7 @@ const (
 
 var defaultServiceOptions = ServiceOptions{Mode: ModeNormal}
 
-type BasePollingService struct {
+type pollingService struct {
 	eb   *event.Bus
 	ids  []int
 	opts ServiceOptions
@@ -41,7 +41,7 @@ func New(eb *event.Bus, opts *ServiceOptions) PollingService {
 		opts = &defaultServiceOptions
 	}
 
-	return &BasePollingService{
+	return &pollingService{
 		eb:   eb,
 		ids:  make([]int, 0),
 		opts: *opts,
@@ -49,7 +49,7 @@ func New(eb *event.Bus, opts *ServiceOptions) PollingService {
 	}
 }
 
-func (s *BasePollingService) Start(ctx context.Context) error {
+func (s *pollingService) Start(ctx context.Context) error {
 	slog.Info("[Polling service] Starting...")
 	if err := s.initIDUpdates(ctx); err != nil {
 		return err
@@ -61,15 +61,15 @@ func (s *BasePollingService) Start(ctx context.Context) error {
 	return nil
 }
 
-func (s *BasePollingService) GetPollingMode() PollingMode {
+func (s *pollingService) GetPollingMode() PollingMode {
 	return s.opts.Mode
 }
 
-func (s *BasePollingService) SetPollingMode(mode PollingMode) {
+func (s *pollingService) SetPollingMode(mode PollingMode) {
 	s.opts.Mode = mode
 }
 
-func (s *BasePollingService) startPollingLoop(ctx context.Context) {
+func (s *pollingService) startPollingLoop(ctx context.Context) {
 	if err := s.poll(ctx); err != nil {
 		slog.Error(fmt.Sprintf("[Polling service] Failed to poll slots: %v", err))
 	}
@@ -95,7 +95,7 @@ func (s *BasePollingService) startPollingLoop(ctx context.Context) {
 	}()
 }
 
-func (s *BasePollingService) poll(ctx context.Context) error {
+func (s *pollingService) poll(ctx context.Context) error {
 	slog.Info("[Polling service] Polling...")
 	var fetchRate time.Duration
 	switch s.opts.Mode {
@@ -119,7 +119,7 @@ func (s *BasePollingService) poll(ctx context.Context) error {
 	return err
 }
 
-func (s *BasePollingService) initIDUpdates(ctx context.Context) error {
+func (s *pollingService) initIDUpdates(ctx context.Context) error {
 	if err := s.updateIDs(ctx); err != nil {
 		slog.Error(fmt.Sprintf("[PollingService] Init ID Updates failed: %v]", err))
 		return err
@@ -143,7 +143,7 @@ func (s *BasePollingService) initIDUpdates(ctx context.Context) error {
 	return nil
 }
 
-func (s *BasePollingService) updateIDs(ctx context.Context) error {
+func (s *pollingService) updateIDs(ctx context.Context) error {
 	slog.Info("[PollingService] Updating IDs...")
 	ids, err := FetchServiceIDs(ctx)
 	if err != nil {

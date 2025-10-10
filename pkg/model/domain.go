@@ -31,7 +31,7 @@ func (t LabType) String() string {
 }
 
 type Subscription struct {
-	ID            int
+	UUID          string
 	UserID        int
 	LabNumber     int
 	LabAuditorium int
