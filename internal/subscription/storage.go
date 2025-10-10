@@ -11,7 +11,7 @@ import (
 type SubscriptionRepo interface {
 	Create(ctx context.Context, sub model.Subscription) error
 	Delete(ctx context.Context, UUID string) error
-	List(ctx context.Context) ([]model.Subscription, error)
+	ListForUser(ctx context.Context, userID int) ([]model.Subscription, error)
 	Exists(ctx context.Context, userID, labNumber, labAuditorium int) (bool, error)
 }
 
@@ -52,9 +52,9 @@ func (s *subscriptionRepo) Delete(ctx context.Context, UUID string) error {
 	return nil
 }
 
-func (s *subscriptionRepo) List(ctx context.Context) ([]model.Subscription, error) {
-	query := `select uuid, user_id, lab_number, lab_auditorium from subscriptions`
-	rows, err := s.db.QueryContext(ctx, query)
+func (s *subscriptionRepo) ListForUser(ctx context.Context, userID int) ([]model.Subscription, error) {
+	query := `select uuid, user_id, lab_number, lab_auditorium from subscriptions where user_id = ?`
+	rows, err := s.db.QueryContext(ctx, query, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list subscriptions: %w", err)
 	}
@@ -86,6 +86,7 @@ func (s *subscriptionRepo) Exists(ctx context.Context, userID, labNumber, labAud
 	defer res.Close()
 
 	var exists bool
+	res.Next()
 	err = res.Scan(&exists)
 	if err != nil {
 		return false, fmt.Errorf("failed to check if subscription exists: %w", err)

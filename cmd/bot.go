@@ -44,9 +44,10 @@ func NewBot(ctx context.Context, eb *event.Bus, subService subscription.Subscrip
 
 func (bt *Bot) Start() {
 	bt.bot.RegisterHandler(bot.HandlerTypeMessageText, "sub", bot.MatchTypeCommandStartOnly, bt.subscribeHandler)
+	bt.bot.RegisterHandler(bot.HandlerTypeMessageText, "unsub", bot.MatchTypeCommandStartOnly, bt.unsubscribeHandler)
+	bt.bot.RegisterHandler(bot.HandlerTypeMessageText, "list", bot.MatchTypeCommandStartOnly, bt.listHandler)
 	go bt.bot.Start(bt.ctx)
 }
 
 func defaultHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
-
 }
