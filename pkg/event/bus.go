@@ -1,7 +1,6 @@
 package event
 
 import (
-	"fmt"
 	"reflect"
 	"sync"
 )
@@ -31,7 +30,6 @@ func Publish[T any](eb *Bus, event T) {
 	eb.mu.Lock()
 	defer eb.mu.Unlock()
 
-	fmt.Println(event)
 	eventType := reflect.TypeOf(event)
 	for _, h := range eb.subscribers[eventType] {
 		handler := h.(func(T))

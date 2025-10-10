@@ -31,8 +31,8 @@ func (t LabType) String() string {
 }
 
 type Subscription struct {
-	ID            string
-	UserID        string
+	ID            int
+	UserID        int
 	LabNumber     int
 	LabAuditorium int
 }

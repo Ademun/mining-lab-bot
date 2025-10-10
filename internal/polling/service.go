@@ -55,9 +55,7 @@ func (s *BasePollingService) Start(ctx context.Context) error {
 		return err
 	}
 
-	if err := s.initPolling(ctx); err != nil {
-		return err
-	}
+	go s.startPollingLoop(ctx)
 
 	slog.Info("[Polling service] Started")
 	return nil
@@ -71,34 +69,30 @@ func (s *BasePollingService) SetPollingMode(mode PollingMode) {
 	s.opts.Mode = mode
 }
 
-func (s *BasePollingService) initPolling(ctx context.Context) error {
+func (s *BasePollingService) startPollingLoop(ctx context.Context) {
 	if err := s.poll(ctx); err != nil {
-		slog.Error("[Polling service] Init Polls failed:", err)
-		return err
+		slog.Error(fmt.Sprintf("[Polling service] Failed to poll slots: %v", err))
 	}
 	go func() {
 		for {
 			var pollRate time.Duration
 			switch s.opts.Mode {
 			case ModeNormal:
-				pollRate = time.Minute * 2
+				pollRate = time.Minute * 1
 			case ModeAggressive:
-				pollRate = time.Second * 30
+				pollRate = time.Second * 25
 			}
 			ticker := time.Tick(pollRate)
 			select {
 			case <-ctx.Done():
 				return
 			case <-ticker:
-
 				if err := s.poll(ctx); err != nil {
 					slog.Error(fmt.Sprintf("[Polling service] Failed to poll slots: %v", err))
 				}
 			}
 		}
 	}()
-
-	return nil
 }
 
 func (s *BasePollingService) poll(ctx context.Context) error {
@@ -106,7 +100,7 @@ func (s *BasePollingService) poll(ctx context.Context) error {
 	var fetchRate time.Duration
 	switch s.opts.Mode {
 	case ModeNormal:
-		fetchRate = time.Second * 2
+		fetchRate = time.Second * 1
 	case ModeAggressive:
 		fetchRate = time.Millisecond * 500
 	}
@@ -115,9 +109,6 @@ func (s *BasePollingService) poll(ctx context.Context) error {
 	defer s.mu.RUnlock()
 
 	slots, err := PollAvailableSlots(ctx, s.ids, fetchRate)
-	if err != nil {
-		return err
-	}
 
 	for _, slot := range slots {
 		slotEvent := event.NewSlotEvent{Slot: slot}
@@ -125,7 +116,7 @@ func (s *BasePollingService) poll(ctx context.Context) error {
 	}
 
 	slog.Info("[Polling service] Polling finished")
-	return nil
+	return err
 }
 
 func (s *BasePollingService) initIDUpdates(ctx context.Context) error {

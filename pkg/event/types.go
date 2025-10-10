@@ -5,3 +5,7 @@ import "github.com/Ademun/mining-lab-bot/pkg/model"
 type NewSlotEvent struct {
 	Slot model.Slot
 }
+
+type NewSubscriptionEvent struct {
+	Subscription model.Subscription
+}
