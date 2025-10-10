@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/Ademun/mining-lab-bot/internal/subscription"
 	"github.com/Ademun/mining-lab-bot/pkg/event"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
@@ -13,12 +14,13 @@ import (
 )
 
 type Bot struct {
-	ctx context.Context
-	eb  *event.Bus
-	bot *bot.Bot
+	ctx        context.Context
+	eb         *event.Bus
+	subService subscription.SubscriptionService
+	bot        *bot.Bot
 }
 
-func NewBot(ctx context.Context, eb *event.Bus) (*Bot, error) {
+func NewBot(ctx context.Context, eb *event.Bus, subService subscription.SubscriptionService) (*Bot, error) {
 	if err := godotenv.Load(".env"); err != nil {
 		slog.Error(fmt.Sprintf("Error loading .env file: %v", err))
 		os.Exit(1)
@@ -33,9 +35,10 @@ func NewBot(ctx context.Context, eb *event.Bus) (*Bot, error) {
 	}
 
 	return &Bot{
-		ctx: ctx,
-		eb:  eb,
-		bot: b,
+		ctx:        ctx,
+		eb:         eb,
+		subService: subService,
+		bot:        b,
 	}, nil
 }
 

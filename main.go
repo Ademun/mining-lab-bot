@@ -2,15 +2,28 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"log"
 	"time"
 
 	"github.com/Ademun/mining-lab-bot/cmd"
 	"github.com/Ademun/mining-lab-bot/internal/polling"
+	"github.com/Ademun/mining-lab-bot/internal/subscription"
 	"github.com/Ademun/mining-lab-bot/pkg/event"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 func main() {
+	db, err := sql.Open("sqlite3", "./dev.db")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	subRepo, err := subscription.NewRepo(db)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	eb := event.NewEventBus()
 	ctx := context.Background()
 
@@ -19,7 +32,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	bot, err := cmd.NewBot(ctx, eb)
+	ss := subscription.New(eb, subRepo)
+	if err := ss.Start(ctx); err != nil {
+		log.Fatal(err)
+	}
+
+	bot, err := cmd.NewBot(ctx, eb, ss)
 	if err != nil {
 		log.Fatal(err)
 	}

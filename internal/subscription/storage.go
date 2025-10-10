@@ -12,6 +12,7 @@ type SubscriptionRepo interface {
 	Create(ctx context.Context, sub model.Subscription) error
 	Delete(ctx context.Context, UUID string) error
 	List(ctx context.Context) ([]model.Subscription, error)
+	Exists(ctx context.Context, userID, labNumber, labAuditorium int) (bool, error)
 }
 
 type subscriptionRepo struct {
@@ -24,7 +25,7 @@ create table if not exists subscriptions (
     uuid text not null primary key,
     user_id integer not null,
     lab_number integer not null,
-    lab_auditorium integer not null,    
+    lab_auditorium integer not null
 )`
 	_, err := db.Exec(query)
 	if err != nil {
@@ -74,4 +75,21 @@ func (s *subscriptionRepo) List(ctx context.Context) ([]model.Subscription, erro
 	}
 
 	return subs, nil
+}
+
+func (s *subscriptionRepo) Exists(ctx context.Context, userID, labNumber, labAuditorium int) (bool, error) {
+	query := `select exists (select 1 from subscriptions where user_id = ? and lab_number = ? and lab_auditorium = ?)`
+	res, err := s.db.QueryContext(ctx, query, userID, labNumber, labAuditorium)
+	if err != nil {
+		return false, fmt.Errorf("failed to check if subscription exists: %w", err)
+	}
+	defer res.Close()
+
+	var exists bool
+	err = res.Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("failed to check if subscription exists: %w", err)
+	}
+
+	return exists, nil
 }

@@ -6,10 +6,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Ademun/mining-lab-bot/pkg/event"
 	"github.com/Ademun/mining-lab-bot/pkg/model"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
+	"github.com/google/uuid"
 )
 
 func (bt *Bot) subscribeHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
@@ -48,10 +48,19 @@ func (bt *Bot) subscribeHandler(ctx context.Context, b *bot.Bot, update *models.
 	userID := update.Message.From.ID
 
 	sub := model.Subscription{
-		ID:            -1,
+		UUID:          uuid.New().String(),
 		UserID:        int(userID),
 		LabNumber:     labNumber,
 		LabAuditorium: labAuditorium,
+	}
+
+	if err := bt.subService.Subscribe(ctx, sub); err != nil {
+		b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID:    update.Message.Chat.ID,
+			Text:      "<b>❌ Произошла ошибка при создании подписки</b>",
+			ParseMode: models.ParseModeHTML,
+		})
+		return
 	}
 
 	b.SendMessage(ctx, &bot.SendMessageParams{
