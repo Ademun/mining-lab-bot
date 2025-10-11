@@ -50,4 +50,6 @@ func (s *notificationService) handleNewSlot(ctx context.Context, slot model.Slot
 			event.Publish(s.eb, ctx, &notif)
 		}
 	}
+
+	s.cache.Set(strconv.Itoa(slot.ID), slot)
 }
