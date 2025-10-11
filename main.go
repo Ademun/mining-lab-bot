@@ -4,6 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"log"
+	"log/slog"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/Ademun/mining-lab-bot/cmd"
@@ -15,6 +19,9 @@ import (
 )
 
 func main() {
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
 	db, err := sql.Open("sqlite3", "./dev.db")
 	if err != nil {
 		log.Fatal(err)
@@ -26,7 +33,6 @@ func main() {
 	}
 
 	eb := event.NewEventBus()
-	ctx := context.Background()
 
 	ps := polling.New(eb, nil)
 	if err := ps.Start(ctx); err != nil {
@@ -49,5 +55,10 @@ func main() {
 	}
 	bot.Start()
 
-	time.Sleep(1 * time.Hour)
+	<-ctx.Done()
+	slog.Info("Shutting down...")
+	_, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
+
+	db.Close()
 }
