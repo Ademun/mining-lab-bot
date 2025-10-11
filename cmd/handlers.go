@@ -12,29 +12,33 @@ import (
 	"github.com/google/uuid"
 )
 
+func (bt *Bot) helpHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
+	b.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID: update.Message.ID,
+		Text: "<b>📖 Справка\n\n\n</b>" +
+			"<b>📝 Подписка:\n\n</b>" +
+			"<b>/sub &lt;номер лабы&gt; &lt;номер аудитории&gt;</b>\n\n\n" +
+			"<b>⚙️ Управление:\n\n</b>" +
+			"<b>/unsub &lt;номер подпписки в списке&gt; - отписаться</b>\n\n\n" +
+			"<b>/list - посмотреть подписки</b>\n\n\n",
+		ParseMode: models.ParseModeHTML,
+	})
+}
+
 func (bt *Bot) subscribeHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 	args := strings.Split(update.Message.Text, " ")[1:]
 	if len(args) != 2 {
 		b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID:    update.Message.Chat.ID,
-			Text:      "<b>❌ Некорректные аргументы.\n\nИспользование: /sub &lt;номер аудитории&gt; &lt;номер лабы&gt;</b>",
+			Text:      "<b>❌ Некорректные аргументы.\n\nИспользование: /sub &lt;номер лабы&gt; &lt;номер аудитории&gt;</b>",
 			ParseMode: models.ParseModeHTML,
 		})
 		return
 	}
 
-	var labAuditorium, labNumber int
+	var labNumber, labAuditorium int
+
 	if num, err := strconv.Atoi(args[0]); err != nil {
-		b.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID:    update.Message.Chat.ID,
-			Text:      "<b>❌ Номер Аудитории должен быть числом</b>",
-			ParseMode: models.ParseModeHTML,
-		})
-		return
-	} else {
-		labAuditorium = num
-	}
-	if num, err := strconv.Atoi(args[1]); err != nil {
 		b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID:    update.Message.Chat.ID,
 			Text:      "<b>❌ Номер лабы должен быть числом</b>",
@@ -43,6 +47,17 @@ func (bt *Bot) subscribeHandler(ctx context.Context, b *bot.Bot, update *models.
 		return
 	} else {
 		labNumber = num
+	}
+
+	if num, err := strconv.Atoi(args[1]); err != nil {
+		b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID:    update.Message.Chat.ID,
+			Text:      "<b>❌ Номер Аудитории должен быть числом</b>",
+			ParseMode: models.ParseModeHTML,
+		})
+		return
+	} else {
+		labAuditorium = num
 	}
 
 	userID := update.Message.From.ID
@@ -67,10 +82,10 @@ func (bt *Bot) subscribeHandler(ctx context.Context, b *bot.Bot, update *models.
 		ChatID: update.Message.Chat.ID,
 		Text: fmt.Sprintf(
 			"<b>✅ Подписка создана!\n\n</b>"+
-				"<b>🚪 Аудитория №%d\n\n</b>"+
 				"<b>📚 Лаба №%d\n\n</b>"+
+				"<b>🚪 Аудитория №%d\n\n</b>"+
 				"<b>Вы получите уведомление, когда появится нужная запись</b>",
-			labAuditorium, labNumber,
+			labNumber, labAuditorium,
 		),
 		ParseMode: models.ParseModeHTML,
 	})
@@ -151,7 +166,7 @@ func (bt *Bot) listHandler(ctx context.Context, b *bot.Bot, update *models.Updat
 	if len(subs) == 0 {
 		b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID:    update.Message.Chat.ID,
-			Text:      "🔍 У вас нет подписок на лабы.\n\nИспользуйте команду /sub &lt;номер аудитории&gt; &lt;номер лабы&gt;",
+			Text:      "🔍 У вас нет подписок на лабы.\n\nИспользуйте команду /sub &lt;номер лабы&gt; &lt;номер аудитории&gt;",
 			ParseMode: models.ParseModeHTML,
 		})
 		return

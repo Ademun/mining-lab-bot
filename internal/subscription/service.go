@@ -29,7 +29,7 @@ func New(eb *event.Bus, repo SubscriptionRepo) SubscriptionService {
 }
 
 func (s *subscriptionService) Start(ctx context.Context) error {
-	slog.Info("[SubscriptionService] Starting...]")
+	slog.Info("[SubscriptionService] Starting...")
 	slog.Info("[SubscriptionService] Started")
 	return nil
 }

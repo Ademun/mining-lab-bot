@@ -100,7 +100,7 @@ func (s *pollingService) poll(ctx context.Context) error {
 	var fetchRate time.Duration
 	switch s.opts.Mode {
 	case ModeNormal:
-		fetchRate = time.Second * 1
+		fetchRate = time.Second * 2
 	case ModeAggressive:
 		fetchRate = time.Millisecond * 500
 	}
