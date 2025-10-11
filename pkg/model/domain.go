@@ -38,6 +38,6 @@ type Subscription struct {
 }
 
 type Notification struct {
-	UserID string
+	UserID int
 	Slot   Slot
 }

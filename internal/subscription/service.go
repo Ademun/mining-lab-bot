@@ -13,7 +13,8 @@ type SubscriptionService interface {
 	Start(ctx context.Context) error
 	Subscribe(ctx context.Context, sub model.Subscription) error
 	Unsubscribe(ctx context.Context, subUUID string) error
-	ListForUser(ctx context.Context, userID int) ([]model.Subscription, error)
+	FindSubscriptionsByUserID(ctx context.Context, userID int) ([]model.Subscription, error)
+	FindSubscriptionsBySlotInfo(ctx context.Context, slot model.Slot) ([]model.Subscription, error)
 }
 
 type subscriptionService struct {
@@ -56,7 +57,12 @@ func (s *subscriptionService) Unsubscribe(ctx context.Context, subUUID string) e
 	return s.subRepo.Delete(ctx, subUUID)
 }
 
-func (s *subscriptionService) ListForUser(ctx context.Context, userID int) ([]model.Subscription, error) {
+func (s *subscriptionService) FindSubscriptionsByUserID(ctx context.Context, userID int) ([]model.Subscription, error) {
 	slog.Info("[SubscriptionService] Listing subscriptions")
-	return s.subRepo.ListForUser(ctx, userID)
+	return s.subRepo.FindByUserID(ctx, userID)
+}
+
+func (s *subscriptionService) FindSubscriptionsBySlotInfo(ctx context.Context, slot model.Slot) ([]model.Subscription, error) {
+	slog.Info("[SubscriptionService] Listing subscriptions")
+	return s.subRepo.FindBySlotInfo(ctx, slot.LabNumber, slot.LabAuditorium)
 }

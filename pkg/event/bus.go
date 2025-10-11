@@ -1,6 +1,8 @@
 package event
 
 import (
+	"context"
+	"log/slog"
 	"reflect"
 	"sync"
 )
@@ -17,7 +19,7 @@ func NewEventBus() *Bus {
 	}
 }
 
-func Subscribe[T any](eb *Bus, handler func(T)) {
+func Subscribe[T any](eb *Bus, handler func(context.Context, T)) {
 	eb.mu.Lock()
 	defer eb.mu.Unlock()
 
@@ -26,13 +28,25 @@ func Subscribe[T any](eb *Bus, handler func(T)) {
 	eb.subscribers[eventType] = append(eb.subscribers[eventType], handler)
 }
 
-func Publish[T any](eb *Bus, event T) {
+func Publish[T any](eb *Bus, ctx context.Context, event T) {
 	eb.mu.Lock()
 	defer eb.mu.Unlock()
 
 	eventType := reflect.TypeOf(event)
 	for _, h := range eb.subscribers[eventType] {
-		handler := h.(func(T))
-		handler(event)
+		handler := h.(func(context.Context, T))
+		go func(handler func(context.Context, T)) {
+			defer func() {
+				if p := recover(); p != nil {
+					slog.Error("Event handler panic", "event", event, "panic", p)
+				}
+			}()
+
+			if ctx.Err() != nil {
+				return
+			}
+
+			handler(ctx, event)
+		}(handler)
 	}
 }

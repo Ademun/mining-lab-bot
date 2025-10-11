@@ -112,7 +112,7 @@ func (s *pollingService) poll(ctx context.Context) error {
 
 	for _, slot := range slots {
 		slotEvent := event.NewSlotEvent{Slot: slot}
-		event.Publish(s.eb, slotEvent)
+		event.Publish(s.eb, ctx, slotEvent)
 	}
 
 	slog.Info("[Polling service] Polling finished")

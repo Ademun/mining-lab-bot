@@ -47,6 +47,9 @@ func (bt *Bot) Start() {
 	bt.bot.RegisterHandler(bot.HandlerTypeMessageText, "sub", bot.MatchTypeCommandStartOnly, bt.subscribeHandler)
 	bt.bot.RegisterHandler(bot.HandlerTypeMessageText, "unsub", bot.MatchTypeCommandStartOnly, bt.unsubscribeHandler)
 	bt.bot.RegisterHandler(bot.HandlerTypeMessageText, "list", bot.MatchTypeCommandStartOnly, bt.listHandler)
+
+	event.Subscribe(bt.eb, bt.notifyHandler)
+
 	go bt.bot.Start(bt.ctx)
 }
 

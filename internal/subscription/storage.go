@@ -11,7 +11,8 @@ import (
 type SubscriptionRepo interface {
 	Create(ctx context.Context, sub model.Subscription) error
 	Delete(ctx context.Context, UUID string) error
-	ListForUser(ctx context.Context, userID int) ([]model.Subscription, error)
+	FindByUserID(ctx context.Context, userID int) ([]model.Subscription, error)
+	FindBySlotInfo(ctx context.Context, labNumber, labAuditorium int) ([]model.Subscription, error)
 	Exists(ctx context.Context, userID, labNumber, labAuditorium int) (bool, error)
 }
 
@@ -52,11 +53,11 @@ func (s *subscriptionRepo) Delete(ctx context.Context, UUID string) error {
 	return nil
 }
 
-func (s *subscriptionRepo) ListForUser(ctx context.Context, userID int) ([]model.Subscription, error) {
+func (s *subscriptionRepo) FindByUserID(ctx context.Context, userID int) ([]model.Subscription, error) {
 	query := `select uuid, user_id, lab_number, lab_auditorium from subscriptions where user_id = ?`
 	rows, err := s.db.QueryContext(ctx, query, userID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list subscriptions: %w", err)
+		return nil, fmt.Errorf("failed to find subscriptions: %w", err)
 	}
 	defer rows.Close()
 
@@ -65,13 +66,38 @@ func (s *subscriptionRepo) ListForUser(ctx context.Context, userID int) ([]model
 		var sub model.Subscription
 		err := rows.Scan(&sub.UUID, &sub.UserID, &sub.LabNumber, &sub.LabAuditorium)
 		if err != nil {
-			return nil, fmt.Errorf("failed to list subscriptions: %w", err)
+			return nil, fmt.Errorf("failed to find subscriptions: %w", err)
 		}
 		subs = append(subs, sub)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("failed to list subscriptions: %w", err)
+		return nil, fmt.Errorf("failed to find subscriptions: %w", err)
+	}
+
+	return subs, nil
+}
+
+func (s *subscriptionRepo) FindBySlotInfo(ctx context.Context, labNumber, labAuditorium int) ([]model.Subscription, error) {
+	query := `select uuid, user_id, lab_number, lab_auditorium from subscriptions where lab_number = ? and lab_auditorium = ?`
+	rows, err := s.db.QueryContext(ctx, query, labNumber, labAuditorium)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find subscriptions: %w", err)
+	}
+	defer rows.Close()
+
+	var subs []model.Subscription
+	for rows.Next() {
+		var sub model.Subscription
+		err := rows.Scan(&sub.UUID, &sub.UserID, &sub.LabNumber, &sub.LabAuditorium)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find subscriptions: %w", err)
+		}
+		subs = append(subs, sub)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to find subscriptions: %w", err)
 	}
 
 	return subs, nil

@@ -115,7 +115,7 @@ func (bt *Bot) unsubscribeHandler(ctx context.Context, b *bot.Bot, update *model
 	}
 
 	userID := update.Message.From.ID
-	subs, err := bt.subService.ListForUser(ctx, int(userID))
+	subs, err := bt.subService.FindSubscriptionsByUserID(ctx, int(userID))
 	if err != nil {
 		b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID:    update.Message.Chat.ID,
@@ -155,7 +155,7 @@ func (bt *Bot) unsubscribeHandler(ctx context.Context, b *bot.Bot, update *model
 
 func (bt *Bot) listHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 	userID := update.Message.From.ID
-	subs, err := bt.subService.ListForUser(ctx, int(userID))
+	subs, err := bt.subService.FindSubscriptionsByUserID(ctx, int(userID))
 	if err != nil {
 		b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID:    update.Message.Chat.ID,
@@ -182,6 +182,21 @@ func (bt *Bot) listHandler(ctx context.Context, b *bot.Bot, update *models.Updat
 	b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID:    update.Message.Chat.ID,
 		Text:      "<b>📋 Ваши подписки:\n\n</b>" + entries.String() + "<b>Для отписки используйте /unsub &lt;номер подписки в списке&gt;</b>",
+		ParseMode: models.ParseModeHTML,
+	})
+}
+
+func (bt *Bot) notifyHandler(ctx context.Context, notif model.Notification) {
+	targetUser := notif.UserID
+	labName, labNumber, labAuditorium, labDateTime := notif.Slot.LabName, notif.Slot.LabNumber, notif.Slot.LabAuditorium, notif.Slot.DateTime
+
+	bt.bot.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID: targetUser,
+		Text: fmt.Sprintf("<b>🔥 Появилась запись!\n\n\n</b>"+
+			"<b>📚 Лаба №%d. %s\n\n</b>"+
+			"<b>🚪 Аудитория №%d\n\n</b>"+
+			"<b>🗓️ Когда: %s<b>",
+			labNumber, labName, labAuditorium, formatDateTime(labDateTime)),
 		ParseMode: models.ParseModeHTML,
 	})
 }

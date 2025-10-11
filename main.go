@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Ademun/mining-lab-bot/cmd"
+	"github.com/Ademun/mining-lab-bot/internal/notification"
 	"github.com/Ademun/mining-lab-bot/internal/polling"
 	"github.com/Ademun/mining-lab-bot/internal/subscription"
 	"github.com/Ademun/mining-lab-bot/pkg/event"
@@ -34,6 +35,11 @@ func main() {
 
 	ss := subscription.New(eb, subRepo)
 	if err := ss.Start(ctx); err != nil {
+		log.Fatal(err)
+	}
+
+	ns := notification.New(eb, ss)
+	if err := ns.Start(ctx); err != nil {
 		log.Fatal(err)
 	}
 
