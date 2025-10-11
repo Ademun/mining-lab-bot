@@ -13,16 +13,18 @@ import (
 )
 
 func (bt *Bot) helpHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
-	b.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID: update.Message.ID,
+	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID: update.Message.Chat.ID,
 		Text: "<b>📖 Справка\n\n\n</b>" +
 			"<b>📝 Подписка:\n\n</b>" +
-			"<b>/sub &lt;номер лабы&gt; &lt;номер аудитории&gt;</b>\n\n\n" +
+			"<b>/sub &lt;номер лабы&gt; &lt;номер аудитории&gt;\n\n\n</b>" +
 			"<b>⚙️ Управление:\n\n</b>" +
-			"<b>/unsub &lt;номер подпписки в списке&gt; - отписаться</b>\n\n\n" +
-			"<b>/list - посмотреть подписки</b>\n\n\n",
+			"<b>/unsub &lt;номер подписки в списке&gt; - отписаться\n\n\n</b>" +
+			"<b>/list - посмотреть подписки\n\n\n</b>",
 		ParseMode: models.ParseModeHTML,
-	})
+	}); err != nil {
+		fmt.Println(err)
+	}
 }
 
 func (bt *Bot) subscribeHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
