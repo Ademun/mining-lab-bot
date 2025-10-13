@@ -35,6 +35,7 @@ func New(eb *event.Bus, subService subscription.SubscriptionService) Notificatio
 func (s *notificationService) Start() error {
 	slog.Info("Starting", "service", logger.ServiceNotification)
 	event.Subscribe(s.eventBus, s.handleNewSlot)
+	event.Subscribe(s.eventBus, s.handleNewSubscription)
 	slog.Info("Started", "service", logger.ServiceNotification)
 	return nil
 }
@@ -57,4 +58,24 @@ func (s *notificationService) handleNewSlot(ctx context.Context, slotEvent event
 	}
 
 	s.cache.Set(strconv.Itoa(slotEvent.Slot.ID), slotEvent.Slot)
+}
+
+func (s *notificationService) handleNewSubscription(ctx context.Context, subEvent event.NewSubscriptionEvent) {
+	slots := s.findSlotsBySubscriptionInfo(subEvent.Subscription)
+	for _, slot := range slots {
+		notif := model.Notification{UserID: subEvent.Subscription.UserID, ChatID: subEvent.Subscription.ChatID, Slot: slot}
+		slog.Info("Sending notification", "data", notif, "service", logger.ServiceNotification)
+		event.Publish(ctx, s.eventBus, event.NewNotificationEvent{Notification: notif})
+	}
+}
+
+func (s *notificationService) findSlotsBySubscriptionInfo(sub model.Subscription) []model.Slot {
+	slots := s.cache.List()
+	items := make([]model.Slot, 0)
+	for _, slot := range slots {
+		if slot.LabNumber == sub.LabNumber && slot.LabAuditorium == sub.LabAuditorium {
+			items = append(items, slot)
+		}
+	}
+	return items
 }

@@ -59,6 +59,16 @@ func (c *TTLCache[T]) Delete(key string) {
 	delete(c.items, key)
 }
 
+func (c *TTLCache[T]) List() []T {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	items := make([]T, 0, len(c.items))
+	for _, item := range c.items {
+		items = append(items, item.value)
+	}
+	return items
+}
+
 func (c *TTLCache[T]) cleanup(interval time.Duration) {
 	ticker := time.Tick(interval)
 

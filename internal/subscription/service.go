@@ -40,6 +40,8 @@ func (s *subscriptionService) Subscribe(ctx context.Context, sub model.Subscript
 		return ErrSubscriptionExists
 	}
 
+	event.Publish(ctx, s.eventBus, event.NewSubscriptionEvent{Subscription: sub})
+
 	return s.subRepo.Create(ctx, sub)
 }
 
