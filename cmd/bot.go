@@ -3,55 +3,52 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"log/slog"
-	"os"
 
 	"github.com/Ademun/mining-lab-bot/internal/subscription"
 	"github.com/Ademun/mining-lab-bot/pkg/event"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
-	"github.com/joho/godotenv"
 )
 
 type Bot struct {
-	ctx        context.Context
-	eb         *event.Bus
-	subService subscription.SubscriptionService
-	bot        *bot.Bot
+	eventBus            *event.Bus
+	subscriptionService subscription.SubscriptionService
+	api                 *bot.Bot
 }
 
-func NewBot(ctx context.Context, eb *event.Bus, subService subscription.SubscriptionService) (*Bot, error) {
-	if err := godotenv.Load(".env"); err != nil {
-		slog.Error(fmt.Sprintf("Error loading .env file: %v", err))
-		os.Exit(1)
-	}
-	botKey := os.Getenv("TG_BOT_KEY")
+func NewBot(eb *event.Bus, subService subscription.SubscriptionService, token string) (*Bot, error) {
 	opts := []bot.Option{
 		bot.WithDefaultHandler(defaultHandler),
 	}
-	b, err := bot.New(botKey, opts...)
+	b, err := bot.New(token, opts...)
 	if err != nil {
-		return nil, fmt.Errorf("error creating the bot: %w", err)
+		return nil, fmt.Errorf("error creating bot: %w", err)
 	}
 
 	return &Bot{
-		ctx:        ctx,
-		eb:         eb,
-		subService: subService,
-		bot:        b,
+		eventBus:            eb,
+		subscriptionService: subService,
+		api:                 b,
 	}, nil
 }
 
-func (bt *Bot) Start() {
-	bt.bot.RegisterHandler(bot.HandlerTypeMessageText, "help", bot.MatchTypeCommandStartOnly, bt.helpHandler)
-	bt.bot.RegisterHandler(bot.HandlerTypeMessageText, "sub", bot.MatchTypeCommandStartOnly, bt.subscribeHandler)
-	bt.bot.RegisterHandler(bot.HandlerTypeMessageText, "unsub", bot.MatchTypeCommandStartOnly, bt.unsubscribeHandler)
-	bt.bot.RegisterHandler(bot.HandlerTypeMessageText, "list", bot.MatchTypeCommandStartOnly, bt.listHandler)
+func (b *Bot) Start(ctx context.Context) {
+	b.api.RegisterHandler(bot.HandlerTypeMessageText, "help", bot.MatchTypeCommandStartOnly, b.helpHandler)
+	b.api.RegisterHandler(bot.HandlerTypeMessageText, "sub", bot.MatchTypeCommandStartOnly, b.subscribeHandler)
+	b.api.RegisterHandler(bot.HandlerTypeMessageText, "unsub", bot.MatchTypeCommandStartOnly, b.unsubscribeHandler)
+	b.api.RegisterHandler(bot.HandlerTypeMessageText, "list", bot.MatchTypeCommandStartOnly, b.listHandler)
 
-	event.Subscribe(bt.eb, bt.notifyHandler)
+	event.Subscribe(b.eventBus, b.notifyHandler)
 
-	go bt.bot.Start(bt.ctx)
+	go b.api.Start(ctx)
 }
 
 func defaultHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
+	b.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID: update.Message.Chat.ID,
+		Text: "<b>👋 Привет!\n\n\n</b>" + "<b>Я бот для записи на лабораторные работы\n\n\n</b>" +
+			"<b>Буду следаить за появлением доступных записей и сразу уведомлю тебя, когда появится нужная\n\n\n</b>" +
+			"<b>Используй /help для просмотра доступных команд</b>",
+		ParseMode: models.ParseModeHTML,
+	})
 }

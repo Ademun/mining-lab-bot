@@ -12,8 +12,8 @@ import (
 	"github.com/google/uuid"
 )
 
-func (bt *Bot) helpHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
-	if _, err := b.SendMessage(ctx, &bot.SendMessageParams{
+func (b *Bot) helpHandler(ctx context.Context, api *bot.Bot, update *models.Update) {
+	api.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID: update.Message.Chat.ID,
 		Text: "<b>📖 Справка\n\n\n</b>" +
 			"<b>📝 Подписка:\n\n</b>" +
@@ -22,15 +22,13 @@ func (bt *Bot) helpHandler(ctx context.Context, b *bot.Bot, update *models.Updat
 			"<b>/unsub &lt;номер подписки в списке&gt; - отписаться\n\n\n</b>" +
 			"<b>/list - посмотреть подписки\n\n\n</b>",
 		ParseMode: models.ParseModeHTML,
-	}); err != nil {
-		fmt.Println(err)
-	}
+	})
 }
 
-func (bt *Bot) subscribeHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
+func (b *Bot) subscribeHandler(ctx context.Context, api *bot.Bot, update *models.Update) {
 	args := strings.Split(update.Message.Text, " ")[1:]
 	if len(args) != 2 {
-		b.SendMessage(ctx, &bot.SendMessageParams{
+		api.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID:    update.Message.Chat.ID,
 			Text:      "<b>❌ Некорректные аргументы.\n\nИспользование: /sub &lt;номер лабы&gt; &lt;номер аудитории&gt;</b>",
 			ParseMode: models.ParseModeHTML,
@@ -40,27 +38,27 @@ func (bt *Bot) subscribeHandler(ctx context.Context, b *bot.Bot, update *models.
 
 	var labNumber, labAuditorium int
 
-	if num, err := strconv.Atoi(args[0]); err != nil {
-		b.SendMessage(ctx, &bot.SendMessageParams{
+	num, err := strconv.Atoi(args[0])
+	if err != nil {
+		api.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID:    update.Message.Chat.ID,
 			Text:      "<b>❌ Номер лабы должен быть числом</b>",
 			ParseMode: models.ParseModeHTML,
 		})
 		return
-	} else {
-		labNumber = num
 	}
+	labNumber = num
 
-	if num, err := strconv.Atoi(args[1]); err != nil {
-		b.SendMessage(ctx, &bot.SendMessageParams{
+	num, err = strconv.Atoi(args[1])
+	if err != nil {
+		api.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID:    update.Message.Chat.ID,
 			Text:      "<b>❌ Номер Аудитории должен быть числом</b>",
 			ParseMode: models.ParseModeHTML,
 		})
 		return
-	} else {
-		labAuditorium = num
 	}
+	labAuditorium = num
 
 	userID := update.Message.From.ID
 
@@ -71,8 +69,8 @@ func (bt *Bot) subscribeHandler(ctx context.Context, b *bot.Bot, update *models.
 		LabAuditorium: labAuditorium,
 	}
 
-	if err := bt.subService.Subscribe(ctx, sub); err != nil {
-		b.SendMessage(ctx, &bot.SendMessageParams{
+	if err := b.subscriptionService.Subscribe(ctx, sub); err != nil {
+		api.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID:    update.Message.Chat.ID,
 			Text:      fmt.Sprintf("<b>❌ Произошла ошибка при создании подписки:\n\n%s</b>", err.Error()),
 			ParseMode: models.ParseModeHTML,
@@ -80,7 +78,7 @@ func (bt *Bot) subscribeHandler(ctx context.Context, b *bot.Bot, update *models.
 		return
 	}
 
-	b.SendMessage(ctx, &bot.SendMessageParams{
+	api.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID: update.Message.Chat.ID,
 		Text: fmt.Sprintf(
 			"<b>✅ Подписка создана!\n\n</b>"+
@@ -93,10 +91,10 @@ func (bt *Bot) subscribeHandler(ctx context.Context, b *bot.Bot, update *models.
 	})
 }
 
-func (bt *Bot) unsubscribeHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
+func (b *Bot) unsubscribeHandler(ctx context.Context, api *bot.Bot, update *models.Update) {
 	args := strings.Split(update.Message.Text, " ")[1:]
 	if len(args) != 1 {
-		b.SendMessage(ctx, &bot.SendMessageParams{
+		api.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID:    update.Message.Chat.ID,
 			Text:      "<b>❌ Некорректные аргументы.\n\nИспользование: /unsub &lt;номер подпписки в списке&gt;\nЧтобы просмотреть список используйте команду /list</b>",
 			ParseMode: models.ParseModeHTML,
@@ -106,7 +104,7 @@ func (bt *Bot) unsubscribeHandler(ctx context.Context, b *bot.Bot, update *model
 
 	subIdx, err := strconv.Atoi(args[0])
 	if err != nil {
-		b.SendMessage(ctx, &bot.SendMessageParams{
+		api.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID:    update.Message.Chat.ID,
 			Text:      "<b>❌ Номер подписки должен быть числом</b>",
 			ParseMode: models.ParseModeHTML,
@@ -115,9 +113,9 @@ func (bt *Bot) unsubscribeHandler(ctx context.Context, b *bot.Bot, update *model
 	}
 
 	userID := update.Message.From.ID
-	subs, err := bt.subService.FindSubscriptionsByUserID(ctx, int(userID))
+	subs, err := b.subscriptionService.FindSubscriptionsByUserID(ctx, int(userID))
 	if err != nil {
-		b.SendMessage(ctx, &bot.SendMessageParams{
+		api.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID:    update.Message.Chat.ID,
 			Text:      fmt.Sprintf("<b>❌ Произошла ошибка при получении списка подписок:\n\n %s</b>", err.Error()),
 			ParseMode: models.ParseModeHTML,
@@ -126,7 +124,7 @@ func (bt *Bot) unsubscribeHandler(ctx context.Context, b *bot.Bot, update *model
 	}
 
 	if subIdx > len(subs) || subIdx < 1 {
-		b.SendMessage(ctx, &bot.SendMessageParams{
+		api.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID:    update.Message.Chat.ID,
 			Text:      fmt.Sprintf("<b>❌ Номер подписки должен быть в диапазоне от 1 до числа ваших подписок - %d</b>", len(subs)),
 			ParseMode: models.ParseModeHTML,
@@ -135,15 +133,15 @@ func (bt *Bot) unsubscribeHandler(ctx context.Context, b *bot.Bot, update *model
 	}
 
 	targetSub := subs[subIdx-1]
-	if err := bt.subService.Unsubscribe(ctx, targetSub.UUID); err != nil {
-		b.SendMessage(ctx, &bot.SendMessageParams{
+	if err := b.subscriptionService.Unsubscribe(ctx, targetSub.UUID); err != nil {
+		api.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID:    update.Message.Chat.ID,
 			Text:      fmt.Sprintf("<b>❌ Произошла ошибка при отписке:\n\n%s</b>", err.Error()),
 			ParseMode: models.ParseModeHTML,
 		})
 		return
 	}
-	b.SendMessage(ctx, &bot.SendMessageParams{
+	api.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID: update.Message.Chat.ID,
 		Text: fmt.Sprintf(
 			"✅ Вы больше не подписаны на лабу №%d в ауд. №%d",
@@ -153,11 +151,11 @@ func (bt *Bot) unsubscribeHandler(ctx context.Context, b *bot.Bot, update *model
 	})
 }
 
-func (bt *Bot) listHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
+func (b *Bot) listHandler(ctx context.Context, api *bot.Bot, update *models.Update) {
 	userID := update.Message.From.ID
-	subs, err := bt.subService.FindSubscriptionsByUserID(ctx, int(userID))
+	subs, err := b.subscriptionService.FindSubscriptionsByUserID(ctx, int(userID))
 	if err != nil {
-		b.SendMessage(ctx, &bot.SendMessageParams{
+		api.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID:    update.Message.Chat.ID,
 			Text:      fmt.Sprintf("<b>❌ Произошла ошибка при получении списка подписок:\n\n %s</b>", err.Error()),
 			ParseMode: models.ParseModeHTML,
@@ -166,7 +164,7 @@ func (bt *Bot) listHandler(ctx context.Context, b *bot.Bot, update *models.Updat
 	}
 
 	if len(subs) == 0 {
-		b.SendMessage(ctx, &bot.SendMessageParams{
+		api.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID:    update.Message.Chat.ID,
 			Text:      "🔍 У вас нет подписок на лабы.\n\nИспользуйте команду /sub &lt;номер лабы&gt; &lt;номер аудитории&gt;",
 			ParseMode: models.ParseModeHTML,
@@ -179,18 +177,18 @@ func (bt *Bot) listHandler(ctx context.Context, b *bot.Bot, update *models.Updat
 		entries.WriteString(fmt.Sprintf("<b>%d. Лаба №%d, ауд. №%d\n\n</b>", idx+1, sub.LabNumber, sub.LabAuditorium))
 	}
 
-	b.SendMessage(ctx, &bot.SendMessageParams{
+	api.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID:    update.Message.Chat.ID,
 		Text:      "<b>📋 Ваши подписки:\n\n</b>" + entries.String() + "<b>Для отписки используйте /unsub &lt;номер подписки в списке&gt;</b>",
 		ParseMode: models.ParseModeHTML,
 	})
 }
 
-func (bt *Bot) notifyHandler(ctx context.Context, notif model.Notification) {
+func (b *Bot) notifyHandler(ctx context.Context, notif model.Notification) {
 	targetUser := notif.UserID
 	labName, labNumber, labAuditorium, labDateTime := notif.Slot.LabName, notif.Slot.LabNumber, notif.Slot.LabAuditorium, notif.Slot.DateTime
 
-	bt.bot.SendMessage(ctx, &bot.SendMessageParams{
+	b.api.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID: targetUser,
 		Text: fmt.Sprintf("<b>🔥 Появилась запись!\n\n\n</b>"+
 			"<b>📚 Лаба №%d. %s\n\n</b>"+
