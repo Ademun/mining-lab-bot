@@ -26,6 +26,8 @@ linters:
       check-type-assertions: true
       exclude-functions:
         - (*github.com/go-telegram/bot.Bot).SendMessage
+        - (*database/sql.Rows).Close
+      verbose: true
 
     revive:
       rules:

@@ -2,15 +2,14 @@ package subscription
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 
 	"github.com/Ademun/mining-lab-bot/pkg/event"
+	"github.com/Ademun/mining-lab-bot/pkg/logger"
 	"github.com/Ademun/mining-lab-bot/pkg/model"
 )
 
 type SubscriptionService interface {
-	Start(ctx context.Context) error
 	Subscribe(ctx context.Context, sub model.Subscription) error
 	Unsubscribe(ctx context.Context, subUUID string) error
 	FindSubscriptionsByUserID(ctx context.Context, userID int) ([]model.Subscription, error)
@@ -18,51 +17,43 @@ type SubscriptionService interface {
 }
 
 type subscriptionService struct {
-	eb      *event.Bus
-	subRepo SubscriptionRepo
+	eventBus *event.Bus
+	subRepo  SubscriptionRepo
 }
 
 func New(eb *event.Bus, repo SubscriptionRepo) SubscriptionService {
 	return &subscriptionService{
-		eb:      eb,
-		subRepo: repo,
+		eventBus: eb,
+		subRepo:  repo,
 	}
 }
 
-func (s *subscriptionService) Start(ctx context.Context) error {
-	slog.Info("[SubscriptionService] Starting...")
-	slog.Info("[SubscriptionService] Started")
-	return nil
-}
-
 func (s *subscriptionService) Subscribe(ctx context.Context, sub model.Subscription) error {
-	slog.Info("[SubscriptionService] New subscription")
-
+	slog.Info("Creating new subscription", "data", sub, "service", logger.ServiceSubscription)
 	exists, err := s.subRepo.Exists(ctx, sub.UserID, sub.LabNumber, sub.LabAuditorium)
 	if err != nil {
-		slog.Error("[SubscriptionService] Error checking if subscription exists: ", err)
 		return err
 	}
 
 	if exists {
-		slog.Info("[SubscriptionService] Subscription already exists")
-		return errors.New("вы уже подписаны на эту лабу")
+		slog.Warn("Subscription already exists", "data", sub, "service", logger.ServiceSubscription)
+		return ErrSubscriptionExists
 	}
 
 	return s.subRepo.Create(ctx, sub)
 }
 
 func (s *subscriptionService) Unsubscribe(ctx context.Context, subUUID string) error {
-	slog.Info("[SubscriptionService] Removing subscription")
+	slog.Info("Deleting subscription", "uuid", subUUID, "service", logger.ServiceSubscription)
 	return s.subRepo.Delete(ctx, subUUID)
 }
 
 func (s *subscriptionService) FindSubscriptionsByUserID(ctx context.Context, userID int) ([]model.Subscription, error) {
-	slog.Info("[SubscriptionService] Listing subscriptions")
+	slog.Info("Finding subscriptions by user ID", "userID", userID, "service", logger.ServiceSubscription)
 	return s.subRepo.FindByUserID(ctx, userID)
 }
 
 func (s *subscriptionService) FindSubscriptionsBySlotInfo(ctx context.Context, slot model.Slot) ([]model.Subscription, error) {
-	slog.Info("[SubscriptionService] Listing subscriptions")
+	slog.Info("Finding subscriptions by slot info", "data", slot, "service", logger.ServiceSubscription)
 	return s.subRepo.FindBySlotInfo(ctx, slot.LabNumber, slot.LabAuditorium)
 }
