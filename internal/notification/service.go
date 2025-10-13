@@ -48,6 +48,7 @@ func (s *notificationService) handleNewSlot(ctx context.Context, slot model.Slot
 
 		for _, sub := range subs {
 			notif := model.Notification{UserID: sub.UserID, Slot: slot}
+			slog.Info("Sending notification", "data", notif, "service", logger.ServiceNotification)
 			event.Publish(s.eventBus, ctx, &notif)
 		}
 	}
