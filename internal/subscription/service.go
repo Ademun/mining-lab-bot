@@ -12,7 +12,7 @@ import (
 type SubscriptionService interface {
 	Subscribe(ctx context.Context, sub model.Subscription) error
 	Unsubscribe(ctx context.Context, subUUID string) error
-	FindSubscriptionsByUserID(ctx context.Context, userID int) ([]model.Subscription, error)
+	FindSubscriptionsByChatID(ctx context.Context, chatID int) ([]model.Subscription, error)
 	FindSubscriptionsBySlotInfo(ctx context.Context, slot model.Slot) ([]model.Subscription, error)
 }
 
@@ -48,9 +48,9 @@ func (s *subscriptionService) Unsubscribe(ctx context.Context, subUUID string) e
 	return s.subRepo.Delete(ctx, subUUID)
 }
 
-func (s *subscriptionService) FindSubscriptionsByUserID(ctx context.Context, userID int) ([]model.Subscription, error) {
-	slog.Info("Finding subscriptions by user ID", "userID", userID, "service", logger.ServiceSubscription)
-	return s.subRepo.FindByUserID(ctx, userID)
+func (s *subscriptionService) FindSubscriptionsByChatID(ctx context.Context, chatID int) ([]model.Subscription, error) {
+	slog.Info("Finding subscriptions by chat ID", "chatID", chatID, "service", logger.ServiceSubscription)
+	return s.subRepo.FindByChatID(ctx, chatID)
 }
 
 func (s *subscriptionService) FindSubscriptionsBySlotInfo(ctx context.Context, slot model.Slot) ([]model.Subscription, error) {

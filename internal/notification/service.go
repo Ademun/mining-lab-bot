@@ -2,6 +2,7 @@ package notification
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"strconv"
 	"time"
@@ -38,21 +39,22 @@ func (s *notificationService) Start() error {
 	return nil
 }
 
-func (s *notificationService) handleNewSlot(ctx context.Context, slot model.Slot) {
-	slog.Info("New slot", "data", slot, "service", logger.ServiceNotification)
-	_, exists := s.cache.Get(strconv.Itoa(slot.ID))
+func (s *notificationService) handleNewSlot(ctx context.Context, slotEvent event.NewSlotEvent) {
+	_, exists := s.cache.Get(strconv.Itoa(slotEvent.Slot.ID))
 	if !exists {
-		subs, err := s.subService.FindSubscriptionsBySlotInfo(ctx, slot)
+		slog.Info("New slot", "data", slotEvent.Slot, "service", logger.ServiceNotification)
+		subs, err := s.subService.FindSubscriptionsBySlotInfo(ctx, slotEvent.Slot)
 		if err != nil {
-			slog.Error("Failed to find subscriptions for slot", "data", slot, "error", err, "service", logger.ServiceNotification)
+			slog.Error("Failed to find subscriptions for slot", "data", slotEvent.Slot, "error", err, "service", logger.ServiceNotification)
 		}
 
 		for _, sub := range subs {
-			notif := model.Notification{UserID: sub.UserID, Slot: slot}
+			fmt.Println(sub)
+			notif := model.Notification{UserID: sub.UserID, ChatID: sub.ChatID, Slot: slotEvent.Slot}
 			slog.Info("Sending notification", "data", notif, "service", logger.ServiceNotification)
-			event.Publish(ctx, s.eventBus, &notif)
+			event.Publish(ctx, s.eventBus, event.NewNotificationEvent{Notification: notif})
 		}
 	}
 
-	s.cache.Set(strconv.Itoa(slot.ID), slot)
+	s.cache.Set(strconv.Itoa(slotEvent.Slot.ID), slotEvent.Slot)
 }

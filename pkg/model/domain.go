@@ -33,11 +33,13 @@ func (t LabType) String() string {
 type Subscription struct {
 	UUID          string
 	UserID        int
+	ChatID        int
 	LabNumber     int
 	LabAuditorium int
 }
 
 type Notification struct {
 	UserID int
+	ChatID int
 	Slot   Slot
 }

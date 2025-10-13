@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Ademun/mining-lab-bot/pkg/event"
 	"github.com/Ademun/mining-lab-bot/pkg/model"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
@@ -61,10 +62,12 @@ func (b *Bot) subscribeHandler(ctx context.Context, api *bot.Bot, update *models
 	labAuditorium = num
 
 	userID := update.Message.From.ID
+	chatID := update.Message.Chat.ID
 
 	sub := model.Subscription{
 		UUID:          uuid.New().String(),
 		UserID:        int(userID),
+		ChatID:        int(chatID),
 		LabNumber:     labNumber,
 		LabAuditorium: labAuditorium,
 	}
@@ -112,8 +115,9 @@ func (b *Bot) unsubscribeHandler(ctx context.Context, api *bot.Bot, update *mode
 		return
 	}
 
-	userID := update.Message.From.ID
-	subs, err := b.subscriptionService.FindSubscriptionsByUserID(ctx, int(userID))
+	chatID := update.Message.Chat.ID
+
+	subs, err := b.subscriptionService.FindSubscriptionsByChatID(ctx, int(chatID))
 	if err != nil {
 		api.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID:    update.Message.Chat.ID,
@@ -152,8 +156,8 @@ func (b *Bot) unsubscribeHandler(ctx context.Context, api *bot.Bot, update *mode
 }
 
 func (b *Bot) listHandler(ctx context.Context, api *bot.Bot, update *models.Update) {
-	userID := update.Message.From.ID
-	subs, err := b.subscriptionService.FindSubscriptionsByUserID(ctx, int(userID))
+	chatID := update.Message.Chat.ID
+	subs, err := b.subscriptionService.FindSubscriptionsByChatID(ctx, int(chatID))
 	if err != nil {
 		api.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID:    update.Message.Chat.ID,
@@ -184,16 +188,16 @@ func (b *Bot) listHandler(ctx context.Context, api *bot.Bot, update *models.Upda
 	})
 }
 
-func (b *Bot) notifyHandler(ctx context.Context, notif model.Notification) {
-	targetUser := notif.UserID
-	labName, labNumber, labAuditorium, labDateTime := notif.Slot.LabName, notif.Slot.LabNumber, notif.Slot.LabAuditorium, notif.Slot.DateTime
+func (b *Bot) notifyHandler(ctx context.Context, notifEvent event.NewNotificationEvent) {
+	targetUser := notifEvent.Notification.ChatID
+	labName, labNumber, labAuditorium, labDateTime := notifEvent.Notification.Slot.LabName, notifEvent.Notification.Slot.LabNumber, notifEvent.Notification.Slot.LabAuditorium, notifEvent.Notification.Slot.DateTime
 
 	b.api.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID: targetUser,
 		Text: fmt.Sprintf("<b>🔥 Появилась запись!\n\n\n</b>"+
 			"<b>📚 Лаба №%d. %s\n\n</b>"+
 			"<b>🚪 Аудитория №%d\n\n</b>"+
-			"<b>🗓️ Когда: %s<b>",
+			"<b>🗓️ Когда: %s</b>",
 			labNumber, labName, labAuditorium, formatDateTime(labDateTime)),
 		ParseMode: models.ParseModeHTML,
 	})
