@@ -2,12 +2,12 @@ package polling
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"sync"
 	"time"
 
 	"github.com/Ademun/mining-lab-bot/pkg/event"
+	"github.com/Ademun/mining-lab-bot/pkg/logger"
 )
 
 type PollingService interface {
@@ -30,53 +30,55 @@ const (
 var defaultServiceOptions = ServiceOptions{Mode: ModeNormal}
 
 type pollingService struct {
-	eb   *event.Bus
-	ids  []int
-	opts ServiceOptions
-	mu   *sync.RWMutex
+	eventBus   *event.Bus
+	serviceURL string
+	serviceIDs []int
+	options    ServiceOptions
+	mutex      *sync.RWMutex
 }
 
-func New(eb *event.Bus, opts *ServiceOptions) PollingService {
+func New(eb *event.Bus, serviceURL string, opts *ServiceOptions) PollingService {
 	if opts == nil {
 		opts = &defaultServiceOptions
 	}
 
 	return &pollingService{
-		eb:   eb,
-		ids:  make([]int, 0),
-		opts: *opts,
-		mu:   &sync.RWMutex{},
+		eventBus:   eb,
+		serviceURL: serviceURL,
+		serviceIDs: make([]int, 0),
+		options:    *opts,
+		mutex:      &sync.RWMutex{},
 	}
 }
 
 func (s *pollingService) Start(ctx context.Context) error {
-	slog.Info("[Polling service] Starting...")
+	slog.Info("Starting", "options", s.options, "service", logger.ServicePolling)
 	if err := s.initIDUpdates(ctx); err != nil {
 		return err
 	}
 
 	go s.startPollingLoop(ctx)
 
-	slog.Info("[Polling service] Started")
+	slog.Info("Started", "service", logger.ServicePolling)
 	return nil
 }
 
 func (s *pollingService) GetPollingMode() PollingMode {
-	return s.opts.Mode
+	return s.options.Mode
 }
 
 func (s *pollingService) SetPollingMode(mode PollingMode) {
-	s.opts.Mode = mode
+	s.options.Mode = mode
 }
 
 func (s *pollingService) startPollingLoop(ctx context.Context) {
 	if err := s.poll(ctx); err != nil {
-		slog.Error(fmt.Sprintf("[Polling service] Failed to poll slots: %v", err))
+		slog.Error("Polling errors", "errors", err, "service", logger.ServicePolling)
 	}
 	go func() {
 		for {
 			var pollRate time.Duration
-			switch s.opts.Mode {
+			switch s.options.Mode {
 			case ModeNormal:
 				pollRate = time.Minute * 1
 			case ModeAggressive:
@@ -88,7 +90,7 @@ func (s *pollingService) startPollingLoop(ctx context.Context) {
 				return
 			case <-ticker:
 				if err := s.poll(ctx); err != nil {
-					slog.Error(fmt.Sprintf("[Polling service] Failed to poll slots: %v", err))
+					slog.Error("Polling errors", "errors", err, "service", logger.ServicePolling)
 				}
 			}
 		}
@@ -96,32 +98,32 @@ func (s *pollingService) startPollingLoop(ctx context.Context) {
 }
 
 func (s *pollingService) poll(ctx context.Context) error {
-	slog.Info("[Polling service] Polling...")
+	slog.Info("Polling", "service", logger.ServicePolling)
 	var fetchRate time.Duration
-	switch s.opts.Mode {
+	switch s.options.Mode {
 	case ModeNormal:
 		fetchRate = time.Second * 2
 	case ModeAggressive:
 		fetchRate = time.Millisecond * 500
 	}
 
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 
-	slots, err := PollAvailableSlots(ctx, s.ids, fetchRate)
+	slots, err := PollAvailableSlots(ctx, s.serviceIDs, fetchRate)
 
 	for _, slot := range slots {
 		slotEvent := event.NewSlotEvent{Slot: slot}
-		event.Publish(s.eb, ctx, slotEvent)
+		event.Publish(s.eventBus, ctx, slotEvent)
 	}
 
-	slog.Info("[Polling service] Polling finished")
+	slog.Info("Polling finished", "service", logger.ServicePolling)
 	return err
 }
 
 func (s *pollingService) initIDUpdates(ctx context.Context) error {
 	if err := s.updateIDs(ctx); err != nil {
-		slog.Error(fmt.Sprintf("[PollingService] Init ID Updates failed: %v]", err))
+		slog.Error("Failed to update IDs", "error", err, "service", logger.ServicePolling)
 		return err
 	}
 
@@ -134,7 +136,7 @@ func (s *pollingService) initIDUpdates(ctx context.Context) error {
 			case <-ticker:
 				err := s.updateIDs(ctx)
 				if err != nil {
-					slog.Error(fmt.Sprintf("[PollingService] Failed to update ID list: %v]", err))
+					slog.Error("Failed to update IDs", "error", err, "service", logger.ServicePolling)
 				}
 			}
 		}
@@ -144,14 +146,14 @@ func (s *pollingService) initIDUpdates(ctx context.Context) error {
 }
 
 func (s *pollingService) updateIDs(ctx context.Context) error {
-	slog.Info("[PollingService] Updating IDs...")
-	ids, err := FetchServiceIDs(ctx)
+	slog.Info("Updating IDs", "service", logger.ServicePolling)
+	ids, err := FetchServiceIDs(ctx, s.serviceURL)
 	if err != nil {
 		return err
 	}
-	s.mu.Lock()
-	s.ids = ids
-	s.mu.Unlock()
-	slog.Info("[PollingService] Finished updating IDs")
+	s.mutex.Lock()
+	s.serviceIDs = ids
+	s.mutex.Unlock()
+	slog.Info("Finished updating IDs", "service", logger.ServicePolling)
 	return nil
 }

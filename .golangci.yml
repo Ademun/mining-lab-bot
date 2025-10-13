@@ -27,6 +27,8 @@ linters:
       exclude-functions:
         - (*github.com/go-telegram/bot.Bot).SendMessage
         - (*database/sql.Rows).Close
+        - (io.Closer).Close
+        - (*golang.org/x/time/rate.Limiter).Wait
       verbose: true
 
     revive:

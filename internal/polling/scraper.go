@@ -3,31 +3,22 @@ package polling
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"log"
-	"log/slog"
 	"net/http"
-	"os"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/joho/godotenv"
 )
 
-var url string
-
-func init() {
-	if err := godotenv.Load(); err != nil {
-		slog.Error(fmt.Sprintf("Error loading .env file: %v", err))
-		os.Exit(1)
+func FetchServiceIDs(ctx context.Context, url string) ([]int, error) {
+	doc, err := fetchDocument(ctx, url)
+	if err != nil {
+		return nil, err
 	}
-	url = os.Getenv("SERV_ID_SRC")
-}
-
-func FetchServiceIDs(ctx context.Context) ([]int, error) {
-	doc := fetchDocument(ctx)
 
 	serviceIDs := make([]int, 0)
-	doc.Find(".newrecord2").Each(func(i int, s *goquery.Selection) {
+	var parsingErr error
+	doc.Find(".newrecord2").Each(func(_ int, s *goquery.Selection) {
 		dataOptions, exists := s.Attr("data-options")
 		if !exists {
 			return
@@ -35,8 +26,7 @@ func FetchServiceIDs(ctx context.Context) ([]int, error) {
 		var pageOptions PageOptions
 		err := json.Unmarshal([]byte(dataOptions), &pageOptions)
 		if err != nil {
-			slog.Error(fmt.Sprintf("Failed to unmarshal json pageOptions %v", err))
-			return
+			parsingErr = &ErrParseData{err: err, data: dataOptions}
 		}
 		categories := pageOptions.StepData.List
 		for _, category := range categories {
@@ -46,31 +36,36 @@ func FetchServiceIDs(ctx context.Context) ([]int, error) {
 		}
 	})
 
+	if parsingErr != nil {
+		return nil, err
+	}
+
 	return serviceIDs, nil
 }
 
-func fetchDocument(ctx context.Context) *goquery.Document {
+func fetchDocument(ctx context.Context, url string) (*goquery.Document, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		log.Fatal(fmt.Sprintf("Failed to construct a request: %v", err))
+		return nil, &ErrFetch{err: err, msg: "Failed to create request"}
 	}
 
 	client := &http.Client{}
 
 	res, err := client.Do(req)
 	if err != nil {
-		log.Fatal(fmt.Sprintf("Failed to fetch document: %v", err))
+		return nil, &ErrFetch{err: err, msg: "Failed to fetch document"}
 	}
 
 	defer res.Body.Close()
 
 	if res.StatusCode != 200 {
-		log.Fatal(fmt.Sprintf("Failed to fetch card id page. Got status code %d", res.StatusCode))
+		return nil, &ErrFetch{err: errors.New("bad status code"), msg: fmt.Sprintf("Expected 200 but got %d", res.StatusCode)}
 	}
 
 	doc, err := goquery.NewDocumentFromReader(res.Body)
 	if err != nil {
-		log.Fatal(fmt.Sprintf("Failed to parse response body: %v", err))
+		return nil, &ErrFetch{err: err, msg: "Failed to parse document"}
 	}
-	return doc
+
+	return doc, nil
 }

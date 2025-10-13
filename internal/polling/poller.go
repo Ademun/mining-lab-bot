@@ -24,7 +24,7 @@ func PollAvailableSlots(ctx context.Context, ids []int, fetchRate time.Duration)
 					return nil
 				default:
 					limiter.Wait(context.Background())
-					data, err := FetchServiceData(serviceID)
+					data, err := FetchServiceData(ctx, serviceID)
 					if err != nil {
 						return err
 					}
