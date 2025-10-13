@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/Ademun/mining-lab-bot/internal/subscription"
+	"github.com/Ademun/mining-lab-bot/pkg/config"
 	"github.com/Ademun/mining-lab-bot/pkg/event"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
@@ -14,13 +15,14 @@ type Bot struct {
 	eventBus            *event.Bus
 	subscriptionService subscription.SubscriptionService
 	api                 *bot.Bot
+	options             *config.TelegramConfig
 }
 
-func NewBot(eb *event.Bus, subService subscription.SubscriptionService, token string) (*Bot, error) {
-	opts := []bot.Option{
+func NewBot(eb *event.Bus, subService subscription.SubscriptionService, opts *config.TelegramConfig) (*Bot, error) {
+	botOpts := []bot.Option{
 		bot.WithDefaultHandler(defaultHandler),
 	}
-	b, err := bot.New(token, opts...)
+	b, err := bot.New(opts.BotToken, botOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("error creating bot: %w", err)
 	}
@@ -29,6 +31,7 @@ func NewBot(eb *event.Bus, subService subscription.SubscriptionService, token st
 		eventBus:            eb,
 		subscriptionService: subService,
 		api:                 b,
+		options:             opts,
 	}, nil
 }
 

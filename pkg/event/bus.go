@@ -28,13 +28,13 @@ func Subscribe[T any](eb *Bus, handler func(context.Context, T)) {
 	eb.subscribers[eventType] = append(eb.subscribers[eventType], handler)
 }
 
-func Publish[T any](eb *Bus, ctx context.Context, event T) {
+func Publish[T any](ctx context.Context, eb *Bus, event T) {
 	eb.mu.Lock()
 	defer eb.mu.Unlock()
 
 	eventType := reflect.TypeOf(event)
 	for _, h := range eb.subscribers[eventType] {
-		handler := h.(func(context.Context, T))
+		handler, _ := h.(func(context.Context, T))
 		go func(handler func(context.Context, T)) {
 			defer func() {
 				if p := recover(); p != nil {

@@ -2,8 +2,7 @@ package event
 
 import "github.com/Ademun/mining-lab-bot/pkg/model"
 
-type Event struct {
-}
+type Event struct{}
 
 func (e Event) Type() string {
 	return "event"

@@ -39,6 +39,7 @@ func (s *notificationService) Start() error {
 }
 
 func (s *notificationService) handleNewSlot(ctx context.Context, slot model.Slot) {
+	slog.Info("New slot", "data", slot, "service", logger.ServiceNotification)
 	_, exists := s.cache.Get(strconv.Itoa(slot.ID))
 	if !exists {
 		subs, err := s.subService.FindSubscriptionsBySlotInfo(ctx, slot)
@@ -49,7 +50,7 @@ func (s *notificationService) handleNewSlot(ctx context.Context, slot model.Slot
 		for _, sub := range subs {
 			notif := model.Notification{UserID: sub.UserID, Slot: slot}
 			slog.Info("Sending notification", "data", notif, "service", logger.ServiceNotification)
-			event.Publish(s.eventBus, ctx, &notif)
+			event.Publish(ctx, s.eventBus, &notif)
 		}
 	}
 

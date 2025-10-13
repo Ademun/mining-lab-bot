@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"database/sql"
-	"log"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -14,7 +13,9 @@ import (
 	"github.com/Ademun/mining-lab-bot/internal/notification"
 	"github.com/Ademun/mining-lab-bot/internal/polling"
 	"github.com/Ademun/mining-lab-bot/internal/subscription"
+	"github.com/Ademun/mining-lab-bot/pkg/config"
 	"github.com/Ademun/mining-lab-bot/pkg/event"
+	"github.com/Ademun/mining-lab-bot/pkg/logger"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -22,43 +23,56 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 
+	logger.Init(slog.LevelInfo)
+
+	cfg, err := config.Load("config.yaml")
+	if err != nil {
+		slog.Error("Fatal error", "error", err)
+		return
+	}
+
 	db, err := sql.Open("sqlite3", "./dev.db")
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("Fatal error", "error", err)
+		return
 	}
 
-	subRepo, err := subscription.NewRepo(db)
+	subscriptionRepo, err := subscription.NewRepo(ctx, db)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("Fatal error", "error", err)
+		return
 	}
 
-	eb := event.NewEventBus()
+	eventBus := event.NewEventBus()
 
-	ps := polling.New(eb, nil)
-	if err := ps.Start(ctx); err != nil {
-		log.Fatal(err)
+	pollingService := polling.New(eventBus, &cfg.PollingConfig)
+	if err := pollingService.Start(ctx); err != nil {
+		slog.Error("Fatal error", "error", err)
+		return
 	}
 
-	ss := subscription.New(eb, subRepo)
-	if err := ss.Start(ctx); err != nil {
-		log.Fatal(err)
+	subscriptionService := subscription.New(eventBus, subscriptionRepo)
+
+	notificationService := notification.New(eventBus, subscriptionService)
+	if err := notificationService.Start(); err != nil {
+		slog.Error("Fatal error", "error", err)
+		return
 	}
 
-	ns := notification.New(eb, ss)
-	if err := ns.Start(ctx); err != nil {
-		log.Fatal(err)
-	}
-
-	bot, err := cmd.NewBot(ctx, eb, ss)
+	bot, err := cmd.NewBot(eventBus, subscriptionService, &cfg.TelegramConfig)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("Fatal error", "error", err)
+		return
 	}
-	bot.Start()
+	bot.Start(ctx)
 
 	<-ctx.Done()
 	slog.Info("Shutting down...")
 	_, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
-	db.Close()
+	if err := db.Close(); err != nil {
+		slog.Error("Fatal error", "error", err)
+		return
+	}
 }

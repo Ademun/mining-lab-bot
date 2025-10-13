@@ -6,45 +6,27 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Ademun/mining-lab-bot/pkg/config"
 	"github.com/Ademun/mining-lab-bot/pkg/event"
 	"github.com/Ademun/mining-lab-bot/pkg/logger"
 )
 
 type PollingService interface {
 	Start(ctx context.Context) error
-	GetPollingMode() PollingMode
-	SetPollingMode(PollingMode)
+	GetPollingMode() config.PollingMode
+	SetPollingMode(mode config.PollingMode)
 }
-
-type ServiceOptions struct {
-	Mode PollingMode
-}
-
-type PollingMode int
-
-const (
-	ModeNormal PollingMode = iota
-	ModeAggressive
-)
-
-var defaultServiceOptions = ServiceOptions{Mode: ModeNormal}
 
 type pollingService struct {
 	eventBus   *event.Bus
-	serviceURL string
 	serviceIDs []int
-	options    ServiceOptions
+	options    config.PollingConfig
 	mutex      *sync.RWMutex
 }
 
-func New(eb *event.Bus, serviceURL string, opts *ServiceOptions) PollingService {
-	if opts == nil {
-		opts = &defaultServiceOptions
-	}
-
+func New(eb *event.Bus, opts *config.PollingConfig) PollingService {
 	return &pollingService{
 		eventBus:   eb,
-		serviceURL: serviceURL,
 		serviceIDs: make([]int, 0),
 		options:    *opts,
 		mutex:      &sync.RWMutex{},
@@ -63,11 +45,11 @@ func (s *pollingService) Start(ctx context.Context) error {
 	return nil
 }
 
-func (s *pollingService) GetPollingMode() PollingMode {
+func (s *pollingService) GetPollingMode() config.PollingMode {
 	return s.options.Mode
 }
 
-func (s *pollingService) SetPollingMode(mode PollingMode) {
+func (s *pollingService) SetPollingMode(mode config.PollingMode) {
 	s.options.Mode = mode
 }
 
@@ -79,9 +61,9 @@ func (s *pollingService) startPollingLoop(ctx context.Context) {
 		for {
 			var pollRate time.Duration
 			switch s.options.Mode {
-			case ModeNormal:
+			case config.ModeNormal:
 				pollRate = time.Minute * 1
-			case ModeAggressive:
+			case config.ModeAggressive:
 				pollRate = time.Second * 25
 			}
 			ticker := time.Tick(pollRate)
@@ -101,9 +83,9 @@ func (s *pollingService) poll(ctx context.Context) error {
 	slog.Info("Polling", "service", logger.ServicePolling)
 	var fetchRate time.Duration
 	switch s.options.Mode {
-	case ModeNormal:
+	case config.ModeNormal:
 		fetchRate = time.Second * 2
-	case ModeAggressive:
+	case config.ModeAggressive:
 		fetchRate = time.Millisecond * 500
 	}
 
@@ -114,7 +96,7 @@ func (s *pollingService) poll(ctx context.Context) error {
 
 	for _, slot := range slots {
 		slotEvent := event.NewSlotEvent{Slot: slot}
-		event.Publish(s.eventBus, ctx, slotEvent)
+		event.Publish(ctx, s.eventBus, slotEvent)
 	}
 
 	slog.Info("Polling finished", "service", logger.ServicePolling)
@@ -147,7 +129,7 @@ func (s *pollingService) initIDUpdates(ctx context.Context) error {
 
 func (s *pollingService) updateIDs(ctx context.Context) error {
 	slog.Info("Updating IDs", "service", logger.ServicePolling)
-	ids, err := FetchServiceIDs(ctx, s.serviceURL)
+	ids, err := FetchServiceIDs(ctx, s.options.ServiceURL)
 	if err != nil {
 		return err
 	}
