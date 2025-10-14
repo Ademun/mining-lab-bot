@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Ademun/mining-lab-bot/pkg/event"
+	"github.com/Ademun/mining-lab-bot/pkg/metrics"
 	"github.com/Ademun/mining-lab-bot/pkg/model"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
@@ -92,6 +94,8 @@ func (b *Bot) subscribeHandler(ctx context.Context, api *bot.Bot, update *models
 		),
 		ParseMode: models.ParseModeHTML,
 	})
+
+	b.notificationService.CheckCurrentSlots(ctx, sub)
 }
 
 func (b *Bot) unsubscribeHandler(ctx context.Context, api *bot.Bot, update *models.Update) {
@@ -188,17 +192,60 @@ func (b *Bot) listHandler(ctx context.Context, api *bot.Bot, update *models.Upda
 	})
 }
 
+func (b *Bot) statsHandler(ctx context.Context, api *bot.Bot, update *models.Update) {
+	if int(update.Message.From.ID) != b.options.AdminID {
+		api.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID:    update.Message.Chat.ID,
+			Text:      fmt.Sprintf("<b>❌ Доступ запрещён. Команда доступна только для разработчика</b>"),
+			ParseMode: models.ParseModeHTML,
+		})
+	}
+
+	snapshot := metrics.Global().Snapshot()
+	uptime := time.Since(snapshot.StartTime)
+
+	statsText := strings.Builder{}
+	statsText.WriteString("<b>📊 Статистика бота\n\n</b>")
+
+	statsText.WriteString("<b>🕐 Общее время работы:</b> ")
+	statsText.WriteString(formatDuration(uptime))
+	statsText.WriteString("\n\n")
+
+	statsText.WriteString("<b>🔍 Опросы:\n</b>")
+	statsText.WriteString(fmt.Sprintf("  Всего опросов: <b>%d</b>\n", snapshot.PollingMetrics.TotalPolls))
+	statsText.WriteString(fmt.Sprintf("  Режим: <b>%s</b>\n", formatPollingMode(snapshot.PollingMetrics.Mode)))
+	statsText.WriteString(fmt.Sprintf("  Ошибки парсинга: <b>%d</b>\n", snapshot.PollingMetrics.ParsingErrors))
+	statsText.WriteString(fmt.Sprintf("  Ошибки получения: <b>%d</b>\n", snapshot.PollingMetrics.FetchErrors))
+	statsText.WriteString(fmt.Sprintf("  Среднее время опроса: <b>%s</b>\n", snapshot.PollingMetrics.AveragePollingTime.Round(time.Millisecond)))
+	statsText.WriteString(fmt.Sprintf("  Среднее количество слотов: <b>%d</b>\n\n", snapshot.PollingMetrics.AverageSlotNumber))
+
+	statsText.WriteString("<b>🔔 Уведомления:\n</b>")
+	statsText.WriteString(fmt.Sprintf("  Всего уведомлений: <b>%d</b>\n", snapshot.NotificationMetrics.TotalNotifications))
+	statsText.WriteString(fmt.Sprintf("  Размер кеша: <b>%d</b>\n", snapshot.NotificationMetrics.CacheLength))
+	statsText.WriteString(fmt.Sprintf("  Среднее количество уведомлений: <b>%d</b>\n\n", snapshot.NotificationMetrics.AverageNotifications))
+
+	statsText.WriteString("<b>📝 Подписки:\n</b>")
+	statsText.WriteString(fmt.Sprintf("  Активных подписок: <b>%d</b>", snapshot.SubscriptionMetrics.TotalSubscriptions))
+
+	api.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID:    update.Message.Chat.ID,
+		Text:      statsText.String(),
+		ParseMode: models.ParseModeHTML,
+	})
+}
+
 func (b *Bot) notifyHandler(ctx context.Context, notifEvent event.NewNotificationEvent) {
 	targetUser := notifEvent.Notification.ChatID
-	labName, labNumber, labAuditorium, labDateTime := notifEvent.Notification.Slot.LabName, notifEvent.Notification.Slot.LabNumber, notifEvent.Notification.Slot.LabAuditorium, notifEvent.Notification.Slot.DateTime
+	slot := notifEvent.Notification.Slot
 
 	b.api.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID: targetUser,
 		Text: fmt.Sprintf("<b>🔥 Появилась запись!\n\n\n</b>"+
 			"<b>📚 Лаба №%d. %s\n\n</b>"+
 			"<b>🚪 Аудитория №%d\n\n</b>"+
-			"<b>🗓️ Когда: %s</b>",
-			labNumber, labName, labAuditorium, formatDateTime(labDateTime)),
+			"<b>🗓️ Когда: %s\n\n</b>"+
+			"<b>🔗 <a href='%s'>Ссылка на запись</a></b>",
+			slot.LabNumber, slot.LabName, slot.LabAuditorium, formatDateTime(slot.DateTime), slot.URL),
 		ParseMode: models.ParseModeHTML,
 	})
 }

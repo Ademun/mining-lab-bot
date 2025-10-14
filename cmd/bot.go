@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/Ademun/mining-lab-bot/internal/notification"
 	"github.com/Ademun/mining-lab-bot/internal/subscription"
 	"github.com/Ademun/mining-lab-bot/pkg/config"
 	"github.com/Ademun/mining-lab-bot/pkg/event"
@@ -14,11 +15,12 @@ import (
 type Bot struct {
 	eventBus            *event.Bus
 	subscriptionService subscription.SubscriptionService
+	notificationService notification.NotificationService
 	api                 *bot.Bot
 	options             *config.TelegramConfig
 }
 
-func NewBot(eb *event.Bus, subService subscription.SubscriptionService, opts *config.TelegramConfig) (*Bot, error) {
+func NewBot(eb *event.Bus, subService subscription.SubscriptionService, notifService notification.NotificationService, opts *config.TelegramConfig) (*Bot, error) {
 	botOpts := []bot.Option{
 		bot.WithDefaultHandler(defaultHandler),
 	}
@@ -30,6 +32,7 @@ func NewBot(eb *event.Bus, subService subscription.SubscriptionService, opts *co
 	return &Bot{
 		eventBus:            eb,
 		subscriptionService: subService,
+		notificationService: notifService,
 		api:                 b,
 		options:             opts,
 	}, nil
@@ -40,6 +43,7 @@ func (b *Bot) Start(ctx context.Context) {
 	b.api.RegisterHandler(bot.HandlerTypeMessageText, "sub", bot.MatchTypeCommandStartOnly, b.subscribeHandler)
 	b.api.RegisterHandler(bot.HandlerTypeMessageText, "unsub", bot.MatchTypeCommandStartOnly, b.unsubscribeHandler)
 	b.api.RegisterHandler(bot.HandlerTypeMessageText, "list", bot.MatchTypeCommandStartOnly, b.listHandler)
+	b.api.RegisterHandler(bot.HandlerTypeMessageText, "stats", bot.MatchTypeCommandStartOnly, b.statsHandler)
 
 	event.Subscribe(b.eventBus, b.notifyHandler)
 
@@ -50,7 +54,7 @@ func defaultHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 	b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID: update.Message.Chat.ID,
 		Text: "<b>👋 Привет!\n\n\n</b>" + "<b>Я бот для записи на лабораторные работы\n\n\n</b>" +
-			"<b>Буду следаить за появлением доступных записей и сразу уведомлю тебя, когда появится нужная\n\n\n</b>" +
+			"<b>Буду следить за появлением доступных записей и сразу уведомлю тебя, когда появится нужная\n\n\n</b>" +
 			"<b>Используй /help для просмотра доступных команд</b>",
 		ParseMode: models.ParseModeHTML,
 	})
