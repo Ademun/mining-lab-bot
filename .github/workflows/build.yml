@@ -2,7 +2,7 @@ name: Build for Raspberry PI
 on:
   push:
     branches:
-      - main
+      - master
 
 jobs:
   build:
