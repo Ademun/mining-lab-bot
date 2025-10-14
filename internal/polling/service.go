@@ -3,6 +3,7 @@ package polling
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"sync"
 	"time"
@@ -157,6 +158,9 @@ func (s *pollingService) updateIDs(ctx context.Context) error {
 	s.mutex.Lock()
 	s.serviceIDs = ids
 	s.mutex.Unlock()
+	for _, id := range ids {
+		fmt.Println(id)
+	}
 	slog.Info("Finished updating IDs", "service", logger.ServicePolling)
 	return nil
 }
