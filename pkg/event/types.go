@@ -25,12 +25,3 @@ type NewNotificationEvent struct {
 func (e NewNotificationEvent) Type() string {
 	return "event:notification:new"
 }
-
-type NewSubscriptionEvent struct {
-	Event
-	Subscription model.Subscription
-}
-
-func (e NewSubscriptionEvent) Type() string {
-	return "event:subscription:new"
-}

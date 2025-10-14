@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 	"gopkg.in/yaml.v3"
@@ -27,6 +28,7 @@ const (
 
 type TelegramConfig struct {
 	BotToken string
+	AdminID  int
 }
 
 func Load(configPath string) (*Config, error) {
@@ -54,6 +56,10 @@ func (c *Config) loadFromEnv() error {
 
 	if botToken := os.Getenv("BOT_TOKEN"); botToken != "" {
 		c.TelegramConfig.BotToken = botToken
+	}
+
+	if adminID, err := strconv.Atoi(os.Getenv("ADMIN_ID")); err == nil {
+		c.TelegramConfig.AdminID = adminID
 	}
 
 	return nil

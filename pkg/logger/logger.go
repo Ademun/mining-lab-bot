@@ -13,7 +13,7 @@ const (
 )
 
 func Init(level slog.Level) {
-	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+	handler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
 		Level: level,
 	})
 	slog.SetDefault(slog.New(handler))

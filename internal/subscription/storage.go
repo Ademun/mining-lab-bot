@@ -11,6 +11,7 @@ import (
 type SubscriptionRepo interface {
 	Create(ctx context.Context, sub model.Subscription) error
 	Delete(ctx context.Context, UUID string) error
+	List(ctx context.Context) ([]model.Subscription, error)
 	FindByChatID(ctx context.Context, chatID int) ([]model.Subscription, error)
 	FindBySlotInfo(ctx context.Context, labNumber, labAuditorium int) ([]model.Subscription, error)
 	Exists(ctx context.Context, userID, labNumber, labAuditorium int) (bool, error)
@@ -54,6 +55,31 @@ func (s *subscriptionRepo) Delete(ctx context.Context, uuid string) error {
 	return nil
 }
 
+func (s *subscriptionRepo) List(ctx context.Context) ([]model.Subscription, error) {
+	query := `select uuid, user_id, chat_id, lab_number, lab_auditorium from subscriptions`
+	rows, err := s.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, &ErrQueryExecution{"List", query, err}
+	}
+	defer rows.Close()
+
+	var subs []model.Subscription
+	for rows.Next() {
+		var sub model.Subscription
+		err = rows.Scan(&sub.UUID, &sub.UserID, &sub.ChatID, &sub.LabNumber, &sub.LabAuditorium)
+		if err != nil {
+			return nil, &ErrRowIteration{"List", query, err}
+		}
+		subs = append(subs, sub)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, &ErrRowIteration{"List", query, err}
+	}
+
+	return subs, nil
+}
+
 func (s *subscriptionRepo) FindByChatID(ctx context.Context, chatID int) ([]model.Subscription, error) {
 	query := `select uuid, user_id, chat_id, lab_number, lab_auditorium from subscriptions where chat_id = ?`
 	rows, err := s.db.QueryContext(ctx, query, chatID)
@@ -65,7 +91,7 @@ func (s *subscriptionRepo) FindByChatID(ctx context.Context, chatID int) ([]mode
 	var subs []model.Subscription
 	for rows.Next() {
 		var sub model.Subscription
-		err := rows.Scan(&sub.UUID, &sub.UserID, &sub.LabNumber, &sub.LabAuditorium)
+		err := rows.Scan(&sub.UUID, &sub.UserID, &sub.ChatID, &sub.LabNumber, &sub.LabAuditorium)
 		if err != nil {
 			return nil, &ErrRowIteration{"FindByUserID", query, err}
 		}

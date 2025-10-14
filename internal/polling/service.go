@@ -2,6 +2,7 @@ package polling
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"sync"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/Ademun/mining-lab-bot/pkg/config"
 	"github.com/Ademun/mining-lab-bot/pkg/event"
 	"github.com/Ademun/mining-lab-bot/pkg/logger"
+	"github.com/Ademun/mining-lab-bot/pkg/metrics"
 )
 
 type PollingService interface {
@@ -54,8 +56,10 @@ func (s *pollingService) SetPollingMode(mode config.PollingMode) {
 }
 
 func (s *pollingService) startPollingLoop(ctx context.Context) {
-	if err := s.poll(ctx); err != nil {
-		slog.Error("Polling errors", "errors", err, "service", logger.ServicePolling)
+	if errs := s.poll(ctx); len(errs) > 0 {
+		for _, err := range errs {
+			slog.Warn("Polling error", "error", err, "service", logger.ServicePolling)
+		}
 	}
 	go func() {
 		for {
@@ -71,15 +75,17 @@ func (s *pollingService) startPollingLoop(ctx context.Context) {
 			case <-ctx.Done():
 				return
 			case <-ticker:
-				if err := s.poll(ctx); err != nil {
-					slog.Error("Polling errors", "errors", err, "service", logger.ServicePolling)
+				if errs := s.poll(ctx); len(errs) > 0 {
+					for _, err := range errs {
+						slog.Warn("Polling error", "error", err, "service", logger.ServicePolling)
+					}
 				}
 			}
 		}
 	}()
 }
 
-func (s *pollingService) poll(ctx context.Context) error {
+func (s *pollingService) poll(ctx context.Context) []error {
 	slog.Info("Polling", "service", logger.ServicePolling)
 	var fetchRate time.Duration
 	switch s.options.Mode {
@@ -92,15 +98,30 @@ func (s *pollingService) poll(ctx context.Context) error {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	slots, err := PollAvailableSlots(ctx, s.serviceIDs, fetchRate)
+	start := time.Now()
+	slots, errs := PollAvailableSlots(ctx, s.serviceIDs, fetchRate)
+	total := time.Since(start)
+
+	parseErrs, fetchErrs := 0, 0
+	var parseErr *ErrParseData
+	var fetchErr *ErrFetch
+	for _, err := range errs {
+		if errors.Is(err, parseErr) {
+			parseErrs++
+		}
+		if errors.Is(err, fetchErr) {
+			fetchErrs++
+		}
+	}
+
+	metrics.Global().RecordPollResults(len(slots), parseErrs, fetchErrs, s.GetPollingMode(), total)
 
 	for _, slot := range slots {
 		slotEvent := event.NewSlotEvent{Slot: slot}
 		event.Publish(ctx, s.eventBus, slotEvent)
 	}
-
 	slog.Info("Polling finished", "service", logger.ServicePolling)
-	return err
+	return errs
 }
 
 func (s *pollingService) initIDUpdates(ctx context.Context) error {

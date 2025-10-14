@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -11,6 +12,11 @@ type Slot struct {
 	LabAuditorium int
 	LabType       LabType
 	DateTime      time.Time
+	URL           string
+}
+
+func (s Slot) Key() string {
+	return fmt.Sprintf("%d_%s", s.ID, s.DateTime.Format(time.RFC3339))
 }
 
 type LabType int

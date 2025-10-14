@@ -52,6 +52,9 @@ func main() {
 	}
 
 	subscriptionService := subscription.New(eventBus, subscriptionRepo)
+	if err := subscriptionService.Start(ctx); err != nil {
+		slog.Error("Fatal error", "error", err)
+	}
 
 	notificationService := notification.New(eventBus, subscriptionService)
 	if err := notificationService.Start(); err != nil {
@@ -59,7 +62,7 @@ func main() {
 		return
 	}
 
-	bot, err := cmd.NewBot(eventBus, subscriptionService, &cfg.TelegramConfig)
+	bot, err := cmd.NewBot(eventBus, subscriptionService, notificationService, &cfg.TelegramConfig)
 	if err != nil {
 		slog.Error("Fatal error", "error", err)
 		return

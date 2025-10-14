@@ -2,46 +2,48 @@ package polling
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/Ademun/mining-lab-bot/pkg/model"
-	"golang.org/x/sync/errgroup"
 	"golang.org/x/time/rate"
 )
 
-func PollAvailableSlots(ctx context.Context, ids []int, fetchRate time.Duration) ([]model.Slot, error) {
+func PollAvailableSlots(ctx context.Context, ids []int, fetchRate time.Duration) ([]model.Slot, []error) {
 	slots := make([]model.Slot, 0)
 	results := make(chan model.Slot)
 
-	var processingErr error
-	var eg errgroup.Group
+	var wg sync.WaitGroup
 	limiter := rate.NewLimiter(rate.Every(fetchRate), 1)
+	errChan := make(chan error, len(ids))
 	go func() {
 		for _, serviceID := range ids {
-			eg.Go(func() error {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
 				select {
 				case <-ctx.Done():
-					return nil
+					return
 				default:
 					limiter.Wait(context.Background())
 					data, err := FetchServiceData(ctx, serviceID)
 					if err != nil {
-						return err
+						errChan <- err
+						return
 					}
-					res, err := ParseServiceData(data)
+					res, err := ParseServiceData(data, serviceID)
 					if err != nil {
-						return err
+						errChan <- err
+						return
 					}
 					for _, slot := range res {
 						results <- slot
 					}
-					return nil
 				}
-			})
+			}()
 		}
-		if err := eg.Wait(); err != nil {
-			processingErr = err
-		}
+		wg.Wait()
+		close(errChan)
 		close(results)
 	}()
 
@@ -49,5 +51,10 @@ func PollAvailableSlots(ctx context.Context, ids []int, fetchRate time.Duration)
 		slots = append(slots, slot)
 	}
 
-	return slots, processingErr
+	errList := make([]error, 0)
+	for err := range errChan {
+		errList = append(errList, err)
+	}
+
+	return slots, errList
 }

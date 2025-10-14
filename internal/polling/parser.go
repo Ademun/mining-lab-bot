@@ -1,8 +1,7 @@
 package polling
 
 import (
-	errors2 "errors"
-	"fmt"
+	"errors"
 	"regexp"
 	"strconv"
 	"strings"
@@ -13,7 +12,7 @@ import (
 
 var labNameRegexp = regexp.MustCompile(`\p{L}+\s+\p{L}+\s+№\s*(\d+).*?\((\d+)\s*\p{L}+\.\)(?:.*?\))?\s*(\p{L}.+)$`)
 
-func ParseServiceData(data *ServiceData) ([]model.Slot, error) {
+func ParseServiceData(data *ServiceData, serviceID int) ([]model.Slot, error) {
 	masters := data.Data.Masters
 
 	if len(masters.MasterMap) == 0 {
@@ -24,12 +23,15 @@ func ParseServiceData(data *ServiceData) ([]model.Slot, error) {
 
 	slots := make([]model.Slot, 0, len(masters.MasterMap))
 
-	errors := make([]error, 0)
+	errs := make([]error, 0)
 	for id, master := range masters.MasterMap {
 		labNumber, labAuditorium, labName, err := parseMasterName(master.Username)
 		if err != nil {
-			errors = append(errors, err)
-			continue
+			labNumber, labAuditorium, labName, err = parseMasterName(master.ServiceName)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
 		}
 
 		var labType model.LabType
@@ -39,7 +41,10 @@ func ParseServiceData(data *ServiceData) ([]model.Slot, error) {
 		case strings.Contains(master.ServiceName, "Защита"):
 			labType = model.LabDefence
 		default:
-			errors = append(errors, fmt.Errorf("failed to parse lab type: lab name should contain either 'Выполнение' or 'Защита'"))
+			errs = append(errs, &ErrParseData{
+				data: master.ServiceName,
+				err:  errors.New("invalid lab type in service name"),
+			})
 			continue
 		}
 
@@ -47,7 +52,10 @@ func ParseServiceData(data *ServiceData) ([]model.Slot, error) {
 		for _, timeString := range times.TimesMap[id] {
 			timestamp, err := parseTimeString(timeString)
 			if err != nil {
-				errors = append(errors, fmt.Errorf("failed to parse timestamp %s: %w", timeString, err))
+				errs = append(errs, &ErrParseData{
+					data: timeString,
+					err:  err,
+				})
 				continue
 			}
 			availableTimes = append(availableTimes, timestamp)
@@ -61,14 +69,15 @@ func ParseServiceData(data *ServiceData) ([]model.Slot, error) {
 				LabAuditorium: labAuditorium,
 				LabType:       labType,
 				DateTime:      dateTime,
+				URL:           buildURL(serviceID),
 			}
 
 			slots = append(slots, slot)
 		}
 	}
 
-	if len(errors) > 0 {
-		return nil, errors2.Join(errors...)
+	if len(errs) > 0 {
+		return nil, errors.Join(errs...)
 	}
 
 	return slots, nil
@@ -77,7 +86,10 @@ func ParseServiceData(data *ServiceData) ([]model.Slot, error) {
 func parseMasterName(masterName string) (int, int, string, error) {
 	matches := labNameRegexp.FindStringSubmatch(masterName)
 	if len(matches) < 4 {
-		return 0, 0, "", fmt.Errorf("failed to parse lab name: %s", masterName)
+		return 0, 0, "", &ErrParseData{
+			data: masterName,
+			err:  errors.New("invalid lab name format"),
+		}
 	}
 	labNumber, _ := strconv.Atoi(matches[1])
 	labAuditory, _ := strconv.Atoi(matches[2])
@@ -87,4 +99,8 @@ func parseMasterName(masterName string) (int, int, string, error) {
 
 func parseTimeString(timeString string) (time.Time, error) {
 	return time.Parse("2006-01-02 15:04:05", timeString)
+}
+
+func buildURL(serviceID int) string {
+	return "https://dikidi.net/550001?p=3.pi-po-ssm-sd&o=7&s=" + strconv.Itoa(serviceID) + "&rl=0_undefined"
 }
