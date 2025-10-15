@@ -14,7 +14,6 @@ import (
 	"github.com/Ademun/mining-lab-bot/internal/polling"
 	"github.com/Ademun/mining-lab-bot/internal/subscription"
 	"github.com/Ademun/mining-lab-bot/pkg/config"
-	"github.com/Ademun/mining-lab-bot/pkg/event"
 	"github.com/Ademun/mining-lab-bot/pkg/logger"
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -43,31 +42,27 @@ func main() {
 		return
 	}
 
-	eventBus := event.NewEventBus()
-
-	pollingService := polling.New(eventBus, &cfg.PollingConfig)
-	if err := pollingService.Start(ctx); err != nil {
-		slog.Error("Fatal error", "error", err)
-		return
-	}
-
-	subscriptionService := subscription.New(eventBus, subscriptionRepo)
+	subscriptionService := subscription.New(subscriptionRepo)
 	if err := subscriptionService.Start(ctx); err != nil {
 		slog.Error("Fatal error", "error", err)
 	}
 
-	notificationService := notification.New(eventBus, subscriptionService)
-	if err := notificationService.Start(); err != nil {
-		slog.Error("Fatal error", "error", err)
-		return
-	}
-
-	bot, err := cmd.NewBot(eventBus, subscriptionService, notificationService, &cfg.TelegramConfig)
+	bot, err := cmd.NewBot(subscriptionService, &cfg.TelegramConfig)
 	if err != nil {
 		slog.Error("Fatal error", "error", err)
 		return
 	}
+
+	notificationService := notification.New(subscriptionService, bot)
+
+	bot.SetNotificationService(notificationService)
 	bot.Start(ctx)
+
+	pollingService := polling.New(notificationService, &cfg.PollingConfig)
+	if err := pollingService.Start(ctx); err != nil {
+		slog.Error("Fatal error", "error", err)
+		return
+	}
 
 	<-ctx.Done()
 	slog.Info("Shutting down...")

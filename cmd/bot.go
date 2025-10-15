@@ -15,6 +15,7 @@ import (
 type Bot interface {
 	Start(ctx context.Context)
 	SendNotification(ctx context.Context, notif model.Notification)
+	SetNotificationService(svc notification.Service)
 }
 
 type telegramBot struct {
@@ -24,7 +25,7 @@ type telegramBot struct {
 	options             *config.TelegramConfig
 }
 
-func NewBot(subService subscription.Service, notifService notification.Service, opts *config.TelegramConfig) (Bot, error) {
+func NewBot(subService subscription.Service, opts *config.TelegramConfig) (Bot, error) {
 	botOpts := []bot.Option{
 		bot.WithDefaultHandler(defaultHandler),
 	}
@@ -35,7 +36,6 @@ func NewBot(subService subscription.Service, notifService notification.Service, 
 
 	return &telegramBot{
 		subscriptionService: subService,
-		notifService:        notifService,
 		api:                 b,
 		options:             opts,
 	}, nil
@@ -60,4 +60,8 @@ func (b *telegramBot) SendNotification(ctx context.Context, notif model.Notifica
 		Text:      notifySuccessMessage(&slot),
 		ParseMode: models.ParseModeHTML,
 	})
+}
+
+func (b *telegramBot) SetNotificationService(svc notification.Service) {
+	b.notifService = svc
 }
