@@ -45,20 +45,23 @@ var logCounter atomic.Int64
 func (s *notificationService) handleNewSlot(ctx context.Context, slotEvent event.NewSlotEvent) {
 	_, exists := s.cache.Get(slotEvent.Slot.Key())
 	notifCounter := 0
-	if !exists {
-		logCounter.Add(1)
-		slog.Info("New slot", "seq", logCounter.Load(), "data", slotEvent.Slot, "service", logger.ServiceNotification)
-		subs, err := s.subService.FindSubscriptionsBySlotInfo(ctx, slotEvent.Slot)
-		if err != nil {
-			slog.Error("Failed to find subscriptions for slot", "seq", logCounter.Load(), "data", slotEvent.Slot, "error", err, "service", logger.ServiceNotification)
-		}
 
-		for _, sub := range subs {
-			notifCounter++
-			notif := model.Notification{UserID: sub.UserID, ChatID: sub.ChatID, Slot: slotEvent.Slot}
-			slog.Info("Sending notification", "seq", logCounter.Load(), "data", notif, "service", logger.ServiceNotification)
-			event.Publish(ctx, s.eventBus, event.NewNotificationEvent{Notification: notif})
-		}
+	if exists {
+		return
+	}
+
+	logCounter.Add(1)
+	slog.Info("New slot", "seq", logCounter.Load(), "data", slotEvent.Slot, "service", logger.ServiceNotification)
+	subs, err := s.subService.FindSubscriptionsBySlotInfo(ctx, slotEvent.Slot)
+	if err != nil {
+		slog.Error("Failed to find subscriptions for slot", "seq", logCounter.Load(), "data", slotEvent.Slot, "error", err, "service", logger.ServiceNotification)
+	}
+
+	for _, sub := range subs {
+		notifCounter++
+		notif := model.Notification{UserID: sub.UserID, ChatID: sub.ChatID, Slot: slotEvent.Slot}
+		slog.Info("Sending notification", "seq", logCounter.Load(), "data", notif, "service", logger.ServiceNotification)
+		event.Publish(ctx, s.eventBus, event.NewNotificationEvent{Notification: notif})
 	}
 
 	s.cache.Set(slotEvent.Slot.Key(), slotEvent.Slot)
