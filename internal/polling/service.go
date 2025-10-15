@@ -77,7 +77,7 @@ func (s *pollingService) startPollingLoop(ctx context.Context) {
 	}()
 }
 
-func (s *pollingService) poll(ctx context.Context) []error {
+func (s *pollingService) poll(ctx context.Context) {
 	var fetchRate time.Duration
 	switch s.options.Mode {
 	case config.ModeNormal:
@@ -112,8 +112,6 @@ func (s *pollingService) poll(ctx context.Context) []error {
 	for _, slot := range slots {
 		s.notifService.SendNotification(ctx, slot)
 	}
-
-	return errs
 }
 
 func (s *pollingService) startIDUpdateLoop(ctx context.Context) {
