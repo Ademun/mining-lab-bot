@@ -52,10 +52,8 @@ func (b *Bot) Start(ctx context.Context) {
 
 func defaultHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
 	b.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID: update.Message.Chat.ID,
-		Text: "<b>👋 Привет!\n\n\n</b>" + "<b>Я бот для записи на лабораторные работы\n\n\n</b>" +
-			"<b>Буду следить за появлением доступных записей и сразу уведомлять тебя, когда появится нужная\n\n\n</b>" +
-			"<b>Используй /help для просмотра доступных команд</b>",
+		ChatID:    update.Message.Chat.ID,
+		Text:      startMessage(),
 		ParseMode: models.ParseModeHTML,
 	})
 }
