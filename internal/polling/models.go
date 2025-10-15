@@ -17,10 +17,10 @@ type StepData struct {
 }
 
 type Category struct {
-	Services []Service `json:"services"`
+	Services []LabService `json:"services"`
 }
 
-type Service struct {
+type LabService struct {
 	ID   int    `json:"id"`
 	Name string `json:"name"`
 }

@@ -13,7 +13,7 @@ import (
 )
 
 type Service interface {
-	SendNotification(ctx context.Context, slot model.Slot) error
+	SendNotification(ctx context.Context, slot model.Slot)
 	NotifyNewSubscription(ctx context.Context, sub model.Subscription)
 }
 
@@ -31,12 +31,12 @@ func New(subService subscription.Service, notifier notifier.SlotNotifier) Servic
 	}
 }
 
-func (s *notificationService) SendNotification(ctx context.Context, slot model.Slot) error {
+func (s *notificationService) SendNotification(ctx context.Context, slot model.Slot) {
 	_, exists := s.cache.Get(slot.Key())
 	s.cache.Set(slot.Key(), slot)
 
 	if exists {
-		return nil
+		return
 	}
 
 	subs, err := s.subService.FindSubscriptionsBySlotInfo(ctx, slot)
@@ -52,8 +52,6 @@ func (s *notificationService) SendNotification(ctx context.Context, slot model.S
 		}
 		s.notifier.SendNotification(ctx, notif)
 	}
-
-	return nil
 }
 
 func (s *notificationService) NotifyNewSubscription(ctx context.Context, sub model.Subscription) {

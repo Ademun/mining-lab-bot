@@ -8,31 +8,31 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Ademun/mining-lab-bot/internal/notification"
 	"github.com/Ademun/mining-lab-bot/pkg/config"
-	"github.com/Ademun/mining-lab-bot/pkg/event"
 	"github.com/Ademun/mining-lab-bot/pkg/logger"
 	"github.com/Ademun/mining-lab-bot/pkg/metrics"
 )
 
-type PollingService interface {
+type Service interface {
 	Start(ctx context.Context) error
 	GetPollingMode() config.PollingMode
 	SetPollingMode(mode config.PollingMode)
 }
 
 type pollingService struct {
-	eventBus   *event.Bus
-	serviceIDs []int
-	options    config.PollingConfig
-	mutex      *sync.RWMutex
+	notifService notification.Service
+	options      config.PollingConfig
+	serviceIDs   []int
+	mutex        *sync.RWMutex
 }
 
-func New(eb *event.Bus, opts *config.PollingConfig) PollingService {
+func New(notifService notification.Service, opts *config.PollingConfig) Service {
 	return &pollingService{
-		eventBus:   eb,
-		serviceIDs: make([]int, 0),
-		options:    *opts,
-		mutex:      &sync.RWMutex{},
+		notifService: notifService,
+		options:      *opts,
+		serviceIDs:   make([]int, 0),
+		mutex:        &sync.RWMutex{},
 	}
 }
 
@@ -118,8 +118,7 @@ func (s *pollingService) poll(ctx context.Context) []error {
 	metrics.Global().RecordPollResults(len(slots), parseErrs, fetchErrs, s.GetPollingMode(), total)
 
 	for _, slot := range slots {
-		slotEvent := event.NewSlotEvent{Slot: slot}
-		event.Publish(ctx, s.eventBus, slotEvent)
+		s.notifService.SendNotification(ctx, slot)
 	}
 	slog.Info("Polling finished", "service", logger.ServicePolling)
 	return errs
