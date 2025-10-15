@@ -38,11 +38,9 @@ func New(notifService notification.Service, opts *config.PollingConfig) Service 
 
 func (s *pollingService) Start(ctx context.Context) error {
 	slog.Info("Starting", "options", s.options, "service", logger.ServicePolling)
-	if err := s.initIDUpdates(ctx); err != nil {
-		return err
-	}
 
-	go s.startPollingLoop(ctx)
+	s.startIDUpdateLoop(ctx)
+	s.startPollingLoop(ctx)
 
 	slog.Info("Started", "service", logger.ServicePolling)
 	return nil
@@ -57,11 +55,8 @@ func (s *pollingService) SetPollingMode(mode config.PollingMode) {
 }
 
 func (s *pollingService) startPollingLoop(ctx context.Context) {
-	if errs := s.poll(ctx); len(errs) > 0 {
-		for _, err := range errs {
-			slog.Warn("Polling error", "error", err, "service", logger.ServicePolling)
-		}
-	}
+	s.poll(ctx)
+
 	go func() {
 		for {
 			var pollRate time.Duration
@@ -76,18 +71,13 @@ func (s *pollingService) startPollingLoop(ctx context.Context) {
 			case <-ctx.Done():
 				return
 			case <-ticker:
-				if errs := s.poll(ctx); len(errs) > 0 {
-					for _, err := range errs {
-						slog.Warn("Polling error", "error", err, "service", logger.ServicePolling)
-					}
-				}
+				s.poll(ctx)
 			}
 		}
 	}()
 }
 
 func (s *pollingService) poll(ctx context.Context) []error {
-	slog.Info("Polling", "service", logger.ServicePolling)
 	var fetchRate time.Duration
 	switch s.options.Mode {
 	case config.ModeNormal:
@@ -109,9 +99,11 @@ func (s *pollingService) poll(ctx context.Context) []error {
 	for _, err := range errs {
 		if errors.Is(err, parseErr) {
 			parseErrs++
+			slog.Warn("Parsing error", "error", err, "service", logger.ServicePolling)
 		}
 		if errors.Is(err, fetchErr) {
 			fetchErrs++
+			slog.Warn("Fetching error", "error", err, "service", logger.ServicePolling)
 		}
 	}
 
@@ -120,15 +112,12 @@ func (s *pollingService) poll(ctx context.Context) []error {
 	for _, slot := range slots {
 		s.notifService.SendNotification(ctx, slot)
 	}
-	slog.Info("Polling finished", "service", logger.ServicePolling)
+
 	return errs
 }
 
-func (s *pollingService) initIDUpdates(ctx context.Context) error {
-	if err := s.updateIDs(ctx); err != nil {
-		slog.Error("Failed to update IDs", "error", err, "service", logger.ServicePolling)
-		return err
-	}
+func (s *pollingService) startIDUpdateLoop(ctx context.Context) {
+	s.updateIDs(ctx)
 
 	ticker := time.Tick(time.Hour * 24)
 	go func() {
@@ -137,29 +126,23 @@ func (s *pollingService) initIDUpdates(ctx context.Context) error {
 			case <-ctx.Done():
 				return
 			case <-ticker:
-				err := s.updateIDs(ctx)
-				if err != nil {
-					slog.Error("Failed to update IDs", "error", err, "service", logger.ServicePolling)
-				}
+				s.updateIDs(ctx)
 			}
 		}
 	}()
-
-	return nil
 }
 
-func (s *pollingService) updateIDs(ctx context.Context) error {
-	slog.Info("Updating IDs", "service", logger.ServicePolling)
+func (s *pollingService) updateIDs(ctx context.Context) {
 	ids, err := FetchServiceIDs(ctx, s.options.ServiceURL)
 	if err != nil {
-		return err
+		slog.Warn("Failed to fetch service IDs", "error", err, "service", logger.ServicePolling)
 	}
+
 	s.mutex.Lock()
 	s.serviceIDs = ids
 	s.mutex.Unlock()
+
 	for _, id := range ids {
 		fmt.Println(id)
 	}
-	slog.Info("Finished updating IDs", "service", logger.ServicePolling)
-	return nil
 }
