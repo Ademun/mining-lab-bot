@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Ademun/mining-lab-bot/pkg/event"
 	"github.com/Ademun/mining-lab-bot/pkg/metrics"
 	"github.com/Ademun/mining-lab-bot/pkg/model"
 	"github.com/go-telegram/bot"
@@ -13,7 +12,15 @@ import (
 	"github.com/google/uuid"
 )
 
-func (b *Bot) helpHandler(ctx context.Context, api *bot.Bot, update *models.Update) {
+func defaultHandler(ctx context.Context, api *bot.Bot, update *models.Update) {
+	api.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID:    update.Message.Chat.ID,
+		Text:      startMessage(),
+		ParseMode: models.ParseModeHTML,
+	})
+}
+
+func (b *telegramBot) helpHandler(ctx context.Context, api *bot.Bot, update *models.Update) {
 	api.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID:    update.Message.Chat.ID,
 		Text:      helpMessage(),
@@ -21,7 +28,7 @@ func (b *Bot) helpHandler(ctx context.Context, api *bot.Bot, update *models.Upda
 	})
 }
 
-func (b *Bot) subscribeHandler(ctx context.Context, api *bot.Bot, update *models.Update) {
+func (b *telegramBot) subscribeHandler(ctx context.Context, api *bot.Bot, update *models.Update) {
 	args := strings.Split(update.Message.Text, " ")[1:]
 	if len(args) != 2 {
 		api.SendMessage(ctx, &bot.SendMessageParams{
@@ -85,7 +92,7 @@ func (b *Bot) subscribeHandler(ctx context.Context, api *bot.Bot, update *models
 	b.notificationService.CheckCurrentSlots(ctx, sub)
 }
 
-func (b *Bot) unsubscribeHandler(ctx context.Context, api *bot.Bot, update *models.Update) {
+func (b *telegramBot) unsubscribeHandler(ctx context.Context, api *bot.Bot, update *models.Update) {
 	args := strings.Split(update.Message.Text, " ")[1:]
 	if len(args) != 1 {
 		api.SendMessage(ctx, &bot.SendMessageParams{
@@ -143,7 +150,7 @@ func (b *Bot) unsubscribeHandler(ctx context.Context, api *bot.Bot, update *mode
 	})
 }
 
-func (b *Bot) listHandler(ctx context.Context, api *bot.Bot, update *models.Update) {
+func (b *telegramBot) listHandler(ctx context.Context, api *bot.Bot, update *models.Update) {
 	chatID := update.Message.Chat.ID
 	subs, err := b.subscriptionService.FindSubscriptionsByChatID(ctx, int(chatID))
 	if err != nil {
@@ -171,7 +178,7 @@ func (b *Bot) listHandler(ctx context.Context, api *bot.Bot, update *models.Upda
 	})
 }
 
-func (b *Bot) statsHandler(ctx context.Context, api *bot.Bot, update *models.Update) {
+func (b *telegramBot) statsHandler(ctx context.Context, api *bot.Bot, update *models.Update) {
 	if int(update.Message.From.ID) != b.options.AdminID {
 		api.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID:    update.Message.Chat.ID,
@@ -186,17 +193,6 @@ func (b *Bot) statsHandler(ctx context.Context, api *bot.Bot, update *models.Upd
 	api.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID:    update.Message.Chat.ID,
 		Text:      statsSuccessMessage(&snapshot),
-		ParseMode: models.ParseModeHTML,
-	})
-}
-
-func (b *Bot) notifyHandler(ctx context.Context, notifEvent event.NewNotificationEvent) {
-	targetUser := notifEvent.Notification.ChatID
-	slot := notifEvent.Notification.Slot
-
-	b.api.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID:    targetUser,
-		Text:      notifySuccessMessage(&slot),
 		ParseMode: models.ParseModeHTML,
 	})
 }

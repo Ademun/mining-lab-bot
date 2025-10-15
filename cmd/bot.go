@@ -7,20 +7,24 @@ import (
 	"github.com/Ademun/mining-lab-bot/internal/notification"
 	"github.com/Ademun/mining-lab-bot/internal/subscription"
 	"github.com/Ademun/mining-lab-bot/pkg/config"
-	"github.com/Ademun/mining-lab-bot/pkg/event"
+	"github.com/Ademun/mining-lab-bot/pkg/model"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 )
 
-type Bot struct {
-	eventBus            *event.Bus
+type Bot interface {
+	Start(ctx context.Context)
+	SendNotification(ctx context.Context, notif model.Notification)
+}
+
+type telegramBot struct {
 	subscriptionService subscription.SubscriptionService
 	notificationService notification.NotificationService
 	api                 *bot.Bot
 	options             *config.TelegramConfig
 }
 
-func NewBot(eb *event.Bus, subService subscription.SubscriptionService, notifService notification.NotificationService, opts *config.TelegramConfig) (*Bot, error) {
+func NewBot(subService subscription.SubscriptionService, notifService notification.NotificationService, opts *config.TelegramConfig) (Bot, error) {
 	botOpts := []bot.Option{
 		bot.WithDefaultHandler(defaultHandler),
 	}
@@ -29,8 +33,7 @@ func NewBot(eb *event.Bus, subService subscription.SubscriptionService, notifSer
 		return nil, fmt.Errorf("error creating bot: %w", err)
 	}
 
-	return &Bot{
-		eventBus:            eb,
+	return &telegramBot{
 		subscriptionService: subService,
 		notificationService: notifService,
 		api:                 b,
@@ -38,22 +41,23 @@ func NewBot(eb *event.Bus, subService subscription.SubscriptionService, notifSer
 	}, nil
 }
 
-func (b *Bot) Start(ctx context.Context) {
+func (b *telegramBot) Start(ctx context.Context) {
 	b.api.RegisterHandler(bot.HandlerTypeMessageText, "help", bot.MatchTypeCommandStartOnly, b.helpHandler)
 	b.api.RegisterHandler(bot.HandlerTypeMessageText, "sub", bot.MatchTypeCommandStartOnly, b.subscribeHandler)
 	b.api.RegisterHandler(bot.HandlerTypeMessageText, "unsub", bot.MatchTypeCommandStartOnly, b.unsubscribeHandler)
 	b.api.RegisterHandler(bot.HandlerTypeMessageText, "list", bot.MatchTypeCommandStartOnly, b.listHandler)
 	b.api.RegisterHandler(bot.HandlerTypeMessageText, "stats", bot.MatchTypeCommandStartOnly, b.statsHandler)
 
-	event.Subscribe(b.eventBus, b.notifyHandler)
-
 	go b.api.Start(ctx)
 }
 
-func defaultHandler(ctx context.Context, b *bot.Bot, update *models.Update) {
-	b.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID:    update.Message.Chat.ID,
-		Text:      startMessage(),
+func (b *telegramBot) SendNotification(ctx context.Context, notif model.Notification) {
+	targetUser := notif.ChatID
+	slot := notif.Slot
+
+	b.api.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID:    targetUser,
+		Text:      notifySuccessMessage(&slot),
 		ParseMode: models.ParseModeHTML,
 	})
 }
