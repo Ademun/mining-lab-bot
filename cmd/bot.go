@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/Ademun/mining-lab-bot/internal/notification"
 	"github.com/Ademun/mining-lab-bot/internal/subscription"
 	"github.com/Ademun/mining-lab-bot/pkg/config"
 	"github.com/Ademun/mining-lab-bot/pkg/model"
@@ -18,11 +19,12 @@ type Bot interface {
 
 type telegramBot struct {
 	subscriptionService subscription.SubscriptionService
+	notifService        notification.Service
 	api                 *bot.Bot
 	options             *config.TelegramConfig
 }
 
-func NewBot(subService subscription.SubscriptionService, opts *config.TelegramConfig) (Bot, error) {
+func NewBot(subService subscription.SubscriptionService, notifService notification.Service, opts *config.TelegramConfig) (Bot, error) {
 	botOpts := []bot.Option{
 		bot.WithDefaultHandler(defaultHandler),
 	}
@@ -33,6 +35,7 @@ func NewBot(subService subscription.SubscriptionService, opts *config.TelegramCo
 
 	return &telegramBot{
 		subscriptionService: subService,
+		notifService:        notifService,
 		api:                 b,
 		options:             opts,
 	}, nil

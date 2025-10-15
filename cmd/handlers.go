@@ -88,6 +88,8 @@ func (b *telegramBot) subscribeHandler(ctx context.Context, api *bot.Bot, update
 		Text:      subCreationSuccessMessage(labNumber, labAuditorium),
 		ParseMode: models.ParseModeHTML,
 	})
+
+	b.notifService.NotifyNewSubscription(ctx, sub)
 }
 
 func (b *telegramBot) unsubscribeHandler(ctx context.Context, api *bot.Bot, update *models.Update) {

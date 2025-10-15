@@ -5,28 +5,28 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/Ademun/mining-lab-bot/cmd"
 	"github.com/Ademun/mining-lab-bot/internal/subscription"
 	"github.com/Ademun/mining-lab-bot/pkg/cache"
 	"github.com/Ademun/mining-lab-bot/pkg/logger"
 	"github.com/Ademun/mining-lab-bot/pkg/model"
+	"github.com/Ademun/mining-lab-bot/pkg/notifier"
 )
 
-type NotificationService interface {
+type Service interface {
 	SendNotification(ctx context.Context, slot model.Slot) error
 	NotifyNewSubscription(ctx context.Context, sub model.Subscription)
 }
 
 type notificationService struct {
 	subService subscription.SubscriptionService
-	bot        cmd.Bot
+	notifier   notifier.SlotNotifier
 	cache      *cache.TTLCache[model.Slot]
 }
 
-func New(subService subscription.SubscriptionService, bot cmd.Bot) NotificationService {
+func New(subService subscription.SubscriptionService, notifier notifier.SlotNotifier) Service {
 	return &notificationService{
 		subService: subService,
-		bot:        bot,
+		notifier:   notifier,
 		cache:      cache.NewTTLCache[model.Slot](time.Minute*5, time.Minute*10),
 	}
 }
@@ -50,7 +50,7 @@ func (s *notificationService) SendNotification(ctx context.Context, slot model.S
 			ChatID: sub.ChatID,
 			Slot:   slot,
 		}
-		s.bot.SendNotification(ctx, notif)
+		s.notifier.SendNotification(ctx, notif)
 	}
 
 	return nil
@@ -65,7 +65,7 @@ func (s *notificationService) NotifyNewSubscription(ctx context.Context, sub mod
 			ChatID: sub.ChatID,
 			Slot:   slot,
 		}
-		s.bot.SendNotification(ctx, notif)
+		s.notifier.SendNotification(ctx, notif)
 	}
 }
 
