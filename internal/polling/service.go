@@ -133,7 +133,7 @@ func (s *pollingService) startIDUpdateLoop(ctx context.Context) {
 func (s *pollingService) updateIDs(ctx context.Context) {
 	ids, err := FetchServiceIDs(ctx, s.options.ServiceURL)
 	if err != nil {
-		slog.Warn("Failed to fetch service IDs", "error", err, "service", logger.ServicePolling)
+		slog.Error("Failed to fetch service IDs", "error", err, "service", logger.ServicePolling)
 	}
 
 	s.mutex.Lock()

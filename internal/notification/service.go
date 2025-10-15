@@ -50,6 +50,7 @@ func (s *notificationService) SendNotification(ctx context.Context, slot model.S
 			ChatID: sub.ChatID,
 			Slot:   slot,
 		}
+		slog.Info("Sending notification", "notification", notif, "service", logger.ServiceNotification)
 		s.notifier.SendNotification(ctx, notif)
 	}
 }
@@ -63,6 +64,7 @@ func (s *notificationService) NotifyNewSubscription(ctx context.Context, sub mod
 			ChatID: sub.ChatID,
 			Slot:   slot,
 		}
+		slog.Info("Sending notification", "notification", notif, "service", logger.ServiceNotification)
 		s.notifier.SendNotification(ctx, notif)
 	}
 }
