@@ -25,7 +25,7 @@ func PollAvailableSlots(ctx context.Context, ids []int, fetchRate time.Duration)
 				case <-ctx.Done():
 					return
 				default:
-					limiter.Wait(context.Background())
+					limiter.Wait(ctx)
 					data, err := FetchServiceData(ctx, serviceID)
 					if err != nil {
 						errChan <- err
