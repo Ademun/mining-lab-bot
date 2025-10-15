@@ -3,83 +3,70 @@ package notification
 import (
 	"context"
 	"log/slog"
-	"sync/atomic"
 	"time"
 
+	"github.com/Ademun/mining-lab-bot/cmd"
 	"github.com/Ademun/mining-lab-bot/internal/subscription"
 	"github.com/Ademun/mining-lab-bot/pkg/cache"
-	"github.com/Ademun/mining-lab-bot/pkg/event"
 	"github.com/Ademun/mining-lab-bot/pkg/logger"
-	"github.com/Ademun/mining-lab-bot/pkg/metrics"
 	"github.com/Ademun/mining-lab-bot/pkg/model"
 )
 
 type NotificationService interface {
-	Start() error
-	CheckCurrentSlots(ctx context.Context, sub model.Subscription)
+	SendNotification(ctx context.Context, slot model.Slot) error
+	NotifyNewSubscription(ctx context.Context, sub model.Subscription)
 }
 
 type notificationService struct {
-	eventBus   *event.Bus
 	subService subscription.SubscriptionService
+	bot        cmd.Bot
 	cache      *cache.TTLCache[model.Slot]
 }
 
-func New(eb *event.Bus, subService subscription.SubscriptionService) NotificationService {
+func New(subService subscription.SubscriptionService, bot cmd.Bot) NotificationService {
 	return &notificationService{
-		eventBus:   eb,
 		subService: subService,
+		bot:        bot,
 		cache:      cache.NewTTLCache[model.Slot](time.Minute*5, time.Minute*10),
 	}
 }
 
-func (s *notificationService) Start() error {
-	slog.Info("Starting", "service", logger.ServiceNotification)
-	event.Subscribe(s.eventBus, s.handleNewSlot)
-	slog.Info("Started", "service", logger.ServiceNotification)
-	return nil
-}
-
-var logCounter atomic.Int64
-
-func (s *notificationService) handleNewSlot(ctx context.Context, slotEvent event.NewSlotEvent) {
-	_, exists := s.cache.Get(slotEvent.Slot.Key())
-	notifCounter := 0
+func (s *notificationService) SendNotification(ctx context.Context, slot model.Slot) error {
+	_, exists := s.cache.Get(slot.Key())
+	s.cache.Set(slot.Key(), slot)
 
 	if exists {
-		return
+		return nil
 	}
 
-	logCounter.Add(1)
-	slog.Info("New slot", "seq", logCounter.Load(), "data", slotEvent.Slot, "service", logger.ServiceNotification)
-	subs, err := s.subService.FindSubscriptionsBySlotInfo(ctx, slotEvent.Slot)
+	subs, err := s.subService.FindSubscriptionsBySlotInfo(ctx, slot)
 	if err != nil {
-		slog.Error("Failed to find subscriptions for slot", "seq", logCounter.Load(), "data", slotEvent.Slot, "error", err, "service", logger.ServiceNotification)
+		slog.Error("Failed to find subscriptions", "slot", slot, "err", err, "service", logger.ServiceNotification)
 	}
 
 	for _, sub := range subs {
-		notifCounter++
-		notif := model.Notification{UserID: sub.UserID, ChatID: sub.ChatID, Slot: slotEvent.Slot}
-		slog.Info("Sending notification", "seq", logCounter.Load(), "data", notif, "service", logger.ServiceNotification)
-		event.Publish(ctx, s.eventBus, event.NewNotificationEvent{Notification: notif})
+		notif := model.Notification{
+			UserID: sub.UserID,
+			ChatID: sub.ChatID,
+			Slot:   slot,
+		}
+		s.bot.SendNotification(ctx, notif)
 	}
 
-	s.cache.Set(slotEvent.Slot.Key(), slotEvent.Slot)
-
-	metrics.Global().RecordNotificationResults(notifCounter, len(s.cache.List()))
+	return nil
 }
 
-func (s *notificationService) CheckCurrentSlots(ctx context.Context, sub model.Subscription) {
-	notifCounter := 0
+func (s *notificationService) NotifyNewSubscription(ctx context.Context, sub model.Subscription) {
 	slots := s.findSlotsBySubscriptionInfo(sub)
-	for _, slot := range slots {
-		notifCounter++
-		notif := model.Notification{UserID: sub.UserID, ChatID: sub.ChatID, Slot: slot}
-		slog.Info("Sending notification", "data", notif, "service", logger.ServiceNotification)
-		event.Publish(ctx, s.eventBus, event.NewNotificationEvent{Notification: notif})
-	}
 
-	metrics.Global().RecordNotificationResults(notifCounter, len(s.cache.List()))
+	for _, slot := range slots {
+		notif := model.Notification{
+			UserID: sub.UserID,
+			ChatID: sub.ChatID,
+			Slot:   slot,
+		}
+		s.bot.SendNotification(ctx, notif)
+	}
 }
 
 func (s *notificationService) findSlotsBySubscriptionInfo(sub model.Subscription) []model.Slot {
