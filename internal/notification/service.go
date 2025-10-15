@@ -18,12 +18,12 @@ type Service interface {
 }
 
 type notificationService struct {
-	subService subscription.SubscriptionService
+	subService subscription.Service
 	notifier   notifier.SlotNotifier
 	cache      *cache.TTLCache[model.Slot]
 }
 
-func New(subService subscription.SubscriptionService, notifier notifier.SlotNotifier) Service {
+func New(subService subscription.Service, notifier notifier.SlotNotifier) Service {
 	return &notificationService{
 		subService: subService,
 		notifier:   notifier,

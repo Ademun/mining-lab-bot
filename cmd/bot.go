@@ -18,13 +18,13 @@ type Bot interface {
 }
 
 type telegramBot struct {
-	subscriptionService subscription.SubscriptionService
+	subscriptionService subscription.Service
 	notifService        notification.Service
 	api                 *bot.Bot
 	options             *config.TelegramConfig
 }
 
-func NewBot(subService subscription.SubscriptionService, notifService notification.Service, opts *config.TelegramConfig) (Bot, error) {
+func NewBot(subService subscription.Service, notifService notification.Service, opts *config.TelegramConfig) (Bot, error) {
 	botOpts := []bot.Option{
 		bot.WithDefaultHandler(defaultHandler),
 	}

@@ -8,7 +8,7 @@ import (
 	"github.com/Ademun/mining-lab-bot/pkg/model"
 )
 
-type SubscriptionRepo interface {
+type Repo interface {
 	Create(ctx context.Context, sub model.Subscription) error
 	Delete(ctx context.Context, UUID string) error
 	List(ctx context.Context) ([]model.Subscription, error)
@@ -21,7 +21,7 @@ type subscriptionRepo struct {
 	db *sql.DB
 }
 
-func NewRepo(ctx context.Context, db *sql.DB) (SubscriptionRepo, error) {
+func NewRepo(ctx context.Context, db *sql.DB) (Repo, error) {
 	query := `
 create table if not exists subscriptions (
     uuid text not null primary key,

@@ -4,13 +4,12 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/Ademun/mining-lab-bot/pkg/event"
 	"github.com/Ademun/mining-lab-bot/pkg/logger"
 	"github.com/Ademun/mining-lab-bot/pkg/metrics"
 	"github.com/Ademun/mining-lab-bot/pkg/model"
 )
 
-type SubscriptionService interface {
+type Service interface {
 	Start(ctx context.Context) error
 	Subscribe(ctx context.Context, sub model.Subscription) error
 	Unsubscribe(ctx context.Context, subUUID string) error
@@ -19,14 +18,12 @@ type SubscriptionService interface {
 }
 
 type subscriptionService struct {
-	eventBus *event.Bus
-	subRepo  SubscriptionRepo
+	subRepo Repo
 }
 
-func New(eb *event.Bus, repo SubscriptionRepo) SubscriptionService {
+func New(repo Repo) Service {
 	return &subscriptionService{
-		eventBus: eb,
-		subRepo:  repo,
+		subRepo: repo,
 	}
 }
 
