@@ -62,7 +62,7 @@ func formatPollingMode(mode config.PollingMode) string {
 	case config.ModeNormal:
 		return "стандартный"
 	case config.ModeAggressive:
-		return "аггрессивный"
+		return "агрессивный"
 	default:
 		return "неизвестный"
 	}
