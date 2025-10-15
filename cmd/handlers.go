@@ -199,6 +199,7 @@ func (b *Bot) statsHandler(ctx context.Context, api *bot.Bot, update *models.Upd
 			Text:      fmt.Sprintf("<b>❌ Доступ запрещён. Команда доступна только для разработчика</b>"),
 			ParseMode: models.ParseModeHTML,
 		})
+		return
 	}
 
 	snapshot := metrics.Global().Snapshot()
