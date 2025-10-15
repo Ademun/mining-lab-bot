@@ -12,7 +12,7 @@ type Repo interface {
 	Create(ctx context.Context, sub model.Subscription) error
 	Delete(ctx context.Context, UUID string) error
 	List(ctx context.Context) ([]model.Subscription, error)
-	FindByChatID(ctx context.Context, chatID int) ([]model.Subscription, error)
+	FindByUserID(ctx context.Context, userID int) ([]model.Subscription, error)
 	FindBySlotInfo(ctx context.Context, labNumber, labAuditorium int) ([]model.Subscription, error)
 	Exists(ctx context.Context, userID, labNumber, labAuditorium int) (bool, error)
 }
@@ -80,9 +80,9 @@ func (s *subscriptionRepo) List(ctx context.Context) ([]model.Subscription, erro
 	return subs, nil
 }
 
-func (s *subscriptionRepo) FindByChatID(ctx context.Context, chatID int) ([]model.Subscription, error) {
-	query := `select uuid, user_id, chat_id, lab_number, lab_auditorium from subscriptions where chat_id = ?`
-	rows, err := s.db.QueryContext(ctx, query, chatID)
+func (s *subscriptionRepo) FindByUserID(ctx context.Context, userID int) ([]model.Subscription, error) {
+	query := `select uuid, user_id, chat_id, lab_number, lab_auditorium from subscriptions where user_id = ?`
+	rows, err := s.db.QueryContext(ctx, query, userID)
 	if err != nil {
 		return nil, &ErrQueryExecution{"FindByUserID", query, err}
 	}

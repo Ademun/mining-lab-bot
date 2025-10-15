@@ -116,9 +116,9 @@ func (b *telegramBot) unsubscribeHandler(ctx context.Context, api *bot.Bot, upda
 		return
 	}
 
-	chatID := update.Message.Chat.ID
+	userID := update.Message.From.ID
 
-	subs, err := b.subscriptionService.FindSubscriptionsByChatID(ctx, int(chatID))
+	subs, err := b.subscriptionService.FindSubscriptionsByUserID(ctx, int(userID))
 	if err != nil {
 		api.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID:    update.Message.Chat.ID,
@@ -154,8 +154,8 @@ func (b *telegramBot) unsubscribeHandler(ctx context.Context, api *bot.Bot, upda
 }
 
 func (b *telegramBot) listHandler(ctx context.Context, api *bot.Bot, update *models.Update) {
-	chatID := update.Message.Chat.ID
-	subs, err := b.subscriptionService.FindSubscriptionsByChatID(ctx, int(chatID))
+	userID := update.Message.From.ID
+	subs, err := b.subscriptionService.FindSubscriptionsByUserID(ctx, int(userID))
 	if err != nil {
 		api.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID:    update.Message.Chat.ID,

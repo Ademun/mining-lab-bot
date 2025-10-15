@@ -13,7 +13,7 @@ type Service interface {
 	Start(ctx context.Context) error
 	Subscribe(ctx context.Context, sub model.Subscription) error
 	Unsubscribe(ctx context.Context, subUUID string) error
-	FindSubscriptionsByChatID(ctx context.Context, chatID int) ([]model.Subscription, error)
+	FindSubscriptionsByUserID(ctx context.Context, chatID int) ([]model.Subscription, error)
 	FindSubscriptionsBySlotInfo(ctx context.Context, slot model.Slot) ([]model.Subscription, error)
 }
 
@@ -39,14 +39,13 @@ func (s *subscriptionService) Start(ctx context.Context) error {
 }
 
 func (s *subscriptionService) Subscribe(ctx context.Context, sub model.Subscription) error {
-	slog.Info("Creating new subscription", "data", sub, "service", logger.ServiceSubscription)
 	exists, err := s.subRepo.Exists(ctx, sub.UserID, sub.LabNumber, sub.LabAuditorium)
 	if err != nil {
+		slog.Error("Failed to check if subscription exists", "sub", sub, "err", err)
 		return err
 	}
 
 	if exists {
-		slog.Warn("Subscription already exists", "data", sub, "service", logger.ServiceSubscription)
 		return ErrSubscriptionExists
 	}
 
@@ -56,19 +55,30 @@ func (s *subscriptionService) Subscribe(ctx context.Context, sub model.Subscript
 }
 
 func (s *subscriptionService) Unsubscribe(ctx context.Context, subUUID string) error {
-	slog.Info("Deleting subscription", "uuid", subUUID, "service", logger.ServiceSubscription)
-
 	metrics.Global().RecordSubscriptionResults(-1)
 
-	return s.subRepo.Delete(ctx, subUUID)
+	err := s.subRepo.Delete(ctx, subUUID)
+	if err != nil {
+		slog.Error("Failed to delete subscription", "subUUID", subUUID, "err", err)
+	}
+
+	return err
 }
 
-func (s *subscriptionService) FindSubscriptionsByChatID(ctx context.Context, chatID int) ([]model.Subscription, error) {
-	slog.Info("Finding subscriptions by chat ID", "chatID", chatID, "service", logger.ServiceSubscription)
-	return s.subRepo.FindByChatID(ctx, chatID)
+func (s *subscriptionService) FindSubscriptionsByUserID(ctx context.Context, userID int) ([]model.Subscription, error) {
+	subs, err := s.subRepo.FindByUserID(ctx, userID)
+	if err != nil {
+		slog.Error("Failed to find subscriptions", "userID", userID, "err", err)
+	}
+
+	return subs, err
 }
 
 func (s *subscriptionService) FindSubscriptionsBySlotInfo(ctx context.Context, slot model.Slot) ([]model.Subscription, error) {
-	slog.Info("Finding subscriptions by slot info", "data", slot, "service", logger.ServiceSubscription)
-	return s.subRepo.FindBySlotInfo(ctx, slot.LabNumber, slot.LabAuditorium)
+	subs, err := s.subRepo.FindBySlotInfo(ctx, slot.LabNumber, slot.LabAuditorium)
+	if err != nil {
+		slog.Error("Failed to find subscriptions", "slot", slot, "err", err)
+	}
+
+	return subs, err
 }
