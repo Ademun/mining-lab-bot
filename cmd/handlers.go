@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"log"
 	"strconv"
 	"strings"
 
@@ -13,11 +14,13 @@ import (
 )
 
 func defaultHandler(ctx context.Context, api *bot.Bot, update *models.Update) {
-	api.SendMessage(ctx, &bot.SendMessageParams{
+	if _, err := api.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID:    update.Message.Chat.ID,
 		Text:      startMessage(),
 		ParseMode: models.ParseModeHTML,
-	})
+	}); err != nil {
+		log.Printf("error sending message: %v", err)
+	}
 }
 
 func (b *telegramBot) helpHandler(ctx context.Context, api *bot.Bot, update *models.Update) {

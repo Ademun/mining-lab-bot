@@ -202,7 +202,7 @@ func notifySuccessMessage(slot *model.Slot) string {
 func repeatLineBreaks(breaks int) string {
 	var sb strings.Builder
 	for range breaks {
-		sb.WriteString("<br>")
+		sb.WriteString("\n")
 	}
 	return sb.String()
 }
