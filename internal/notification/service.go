@@ -50,9 +50,10 @@ func (s *notificationService) SendNotification(ctx context.Context, slot model.S
 			ChatID: sub.ChatID,
 			Slot:   slot,
 		}
-		slog.Info("Sending notification", "notification", notif, "service", logger.ServiceNotification)
 		s.notifier.SendNotification(ctx, notif)
 	}
+
+	slog.Info("Finished sending notifications", "total", len(subs), "slot", slot, "service", logger.ServiceNotification)
 }
 
 func (s *notificationService) NotifyNewSubscription(ctx context.Context, sub model.Subscription) {
@@ -64,9 +65,10 @@ func (s *notificationService) NotifyNewSubscription(ctx context.Context, sub mod
 			ChatID: sub.ChatID,
 			Slot:   slot,
 		}
-		slog.Info("Sending notification", "notification", notif, "service", logger.ServiceNotification)
 		s.notifier.SendNotification(ctx, notif)
 	}
+
+	slog.Info("Finished sending notifications", "total", len(slots), "sub", sub, "service", logger.ServiceNotification)
 }
 
 func (s *notificationService) findSlotsBySubscriptionInfo(sub model.Subscription) []model.Slot {
