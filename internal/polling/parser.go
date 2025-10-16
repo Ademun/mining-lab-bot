@@ -61,19 +61,17 @@ func ParseServiceData(data *ServiceData, serviceID int) ([]model.Slot, error) {
 			availableTimes = append(availableTimes, timestamp)
 		}
 
-		for _, dateTime := range availableTimes {
-			slot := model.Slot{
-				ID:            id,
-				LabNumber:     labNumber,
-				LabName:       labName,
-				LabAuditorium: labAuditorium,
-				LabType:       labType,
-				DateTime:      dateTime,
-				URL:           buildURL(serviceID),
-			}
-
-			slots = append(slots, slot)
+		slot := model.Slot{
+			ID:            id,
+			LabNumber:     labNumber,
+			LabName:       labName,
+			LabAuditorium: labAuditorium,
+			LabType:       labType,
+			Available:     availableTimes,
+			URL:           buildURL(serviceID),
 		}
+
+		slots = append(slots, slot)
 	}
 
 	if len(errs) > 0 {
