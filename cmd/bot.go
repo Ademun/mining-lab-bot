@@ -22,14 +22,12 @@ type telegramBot struct {
 	subscriptionService subscription.Service
 	notifService        notification.Service
 	api                 *bot.Bot
+	stateManager        *stateManager
 	options             *config.TelegramConfig
 }
 
 func NewBot(subService subscription.Service, opts *config.TelegramConfig) (Bot, error) {
-	botOpts := []bot.Option{
-		bot.WithDefaultHandler(defaultHandler),
-	}
-	b, err := bot.New(opts.BotToken, botOpts...)
+	b, err := bot.New(opts.BotToken)
 	if err != nil {
 		return nil, fmt.Errorf("error creating bot: %w", err)
 	}
@@ -37,17 +35,26 @@ func NewBot(subService subscription.Service, opts *config.TelegramConfig) (Bot, 
 	return &telegramBot{
 		subscriptionService: subService,
 		api:                 b,
+		stateManager:        newStateManager(),
 		options:             opts,
 	}, nil
 }
 
 func (b *telegramBot) Start(ctx context.Context) {
-	b.api.RegisterHandler(bot.HandlerTypeMessageText, "help", bot.MatchTypeCommandStartOnly, b.helpHandler)
-	b.api.RegisterHandler(bot.HandlerTypeMessageText, "sub", bot.MatchTypeCommandStartOnly, b.subscribeHandler)
-	b.api.RegisterHandler(bot.HandlerTypeMessageText, "unsub", bot.MatchTypeCommandStartOnly, b.unsubscribeHandler)
-	b.api.RegisterHandler(bot.HandlerTypeMessageText, "list", bot.MatchTypeCommandStartOnly, b.listHandler)
-	b.api.RegisterHandler(bot.HandlerTypeMessageText, "stats", bot.MatchTypeCommandStartOnly, b.statsHandler)
-
+	b.api.RegisterHandler(bot.HandlerTypeMessageText, "help",
+		bot.MatchTypeCommandStartOnly, b.helpHandler)
+	b.api.RegisterHandler(bot.HandlerTypeMessageText, "sub",
+		bot.MatchTypeCommandStartOnly, b.subscribeHandler)
+	b.api.RegisterHandler(bot.HandlerTypeMessageText, "unsub",
+		bot.MatchTypeCommandStartOnly, b.unsubscribeHandler)
+	b.api.RegisterHandler(bot.HandlerTypeMessageText, "list",
+		bot.MatchTypeCommandStartOnly, b.listHandler)
+	b.api.RegisterHandler(bot.HandlerTypeMessageText, "stats",
+		bot.MatchTypeCommandStartOnly, b.statsHandler)
+	b.api.RegisterHandler(bot.HandlerTypeMessageText, "", bot.MatchTypeContains,
+		b.messageHandler)
+	b.api.RegisterHandler(bot.HandlerTypeCallbackQueryData, "", bot.MatchTypePrefix,
+		b.callbackRouter)
 	go b.api.Start(ctx)
 }
 

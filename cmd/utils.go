@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"fmt"
+	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/Ademun/mining-lab-bot/pkg/config"
@@ -66,4 +68,26 @@ func formatPollingMode(mode config.PollingMode) string {
 	default:
 		return "неизвестный"
 	}
+}
+
+func parseTime(input string) (time.Time, error) {
+	re := regexp.MustCompile(`^(\d{1,2})[:.]?(\d{2})$`)
+	matches := re.FindStringSubmatch(input)
+	if matches == nil {
+		return time.Now(), fmt.Errorf("неверный формат времени")
+	}
+	hours, err := strconv.Atoi(matches[1])
+	if err != nil || hours < 0 || hours > 23 {
+		return time.Now(), fmt.Errorf("часы должны быть в диапазоне 0-23")
+	}
+	minutes, err := strconv.Atoi(matches[2])
+	if err != nil || minutes < 0 || minutes > 59 {
+		return time.Now(), fmt.Errorf("минуты должны быть в диапазоне 0-59")
+	}
+
+	now := time.Now()
+	parsedTime := time.Date(now.Year(), now.Month(), now.Day(), hours, minutes, 0, 0,
+		now.Location())
+
+	return parsedTime, nil
 }

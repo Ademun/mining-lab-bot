@@ -15,7 +15,7 @@ func startMessage() string {
 	sb.WriteString(repeatLineBreaks(3))
 	sb.WriteString("<b>Я бот для записи на лабораторные работы</b>")
 	sb.WriteString(repeatLineBreaks(3))
-	sb.WriteString("<b>Буду следить за появлением доступных записей и сразу уведомлять тебя, когда появится нужная</b>")
+	sb.WriteString("<b>Буду следить за появлением доступных записей и сразу уведомлять тебя, когда появится нужная </b>")
 	sb.WriteString(repeatLineBreaks(3))
 	sb.WriteString("<b>Используй /help для просмотра доступных команд</b>")
 	return sb.String()
@@ -27,21 +27,89 @@ func helpMessage() string {
 	sb.WriteString(repeatLineBreaks(3))
 	sb.WriteString("<b>📝 Подписка:</b>")
 	sb.WriteString(repeatLineBreaks(2))
-	sb.WriteString("<b>/sub &lt;номер лабы&gt; &lt;номер аудитории&gt;</b>")
+	sb.WriteString("<b>/sub - создать подписку</b>")
 	sb.WriteString(repeatLineBreaks(3))
 	sb.WriteString("<b>⚙️ Управление:</b>")
 	sb.WriteString(repeatLineBreaks(2))
-	sb.WriteString("<b>/unsub &lt;номер подписки в списке&gt; - отписаться</b>")
-	sb.WriteString(repeatLineBreaks(3))
+	sb.WriteString("<b>/unsub - удалить подписку</b>")
+	sb.WriteString(repeatLineBreaks(2))
 	sb.WriteString("<b>/list - посмотреть подписки</b>")
 	return sb.String()
 }
 
-func subInvalidArgumentsMessage() string {
+func subAskLabNumberMessage() string {
 	var sb strings.Builder
-	sb.WriteString("<b>❌ Некорректные аргументы.</b>")
+	sb.WriteString("<b>📚 Введите номер лабораторной работы</b>")
 	sb.WriteString(repeatLineBreaks(2))
-	sb.WriteString("<b>Использование: /sub &lt;номер лабы&gt; &lt;номер аудитории&gt;</b>")
+	sb.WriteString("Например: 3")
+	return sb.String()
+}
+
+func subAskAuditoriumMessage() string {
+	var sb strings.Builder
+	sb.WriteString("<b>🚪 Введите номер аудитории</b>")
+	sb.WriteString(repeatLineBreaks(2))
+	sb.WriteString("Например: 101")
+	return sb.String()
+}
+
+func subAskWeekdayMessage() string {
+	var sb strings.Builder
+	sb.WriteString("<b>📅 Выберите день недели</b>")
+	sb.WriteString(repeatLineBreaks(2))
+	sb.WriteString("Или пропустите, если день не важен")
+	return sb.String()
+}
+
+func subAskTimeMessage() string {
+	var sb strings.Builder
+	sb.WriteString("<b>🕐 Введите время в формате ЧЧ:ММ</b>")
+	sb.WriteString(repeatLineBreaks(2))
+	sb.WriteString("Например: 14:30")
+	sb.WriteString(repeatLineBreaks(2))
+	sb.WriteString("Или пропустите, если время не важно")
+	return sb.String()
+}
+
+func subAskTeacherMessage() string {
+	var sb strings.Builder
+	sb.WriteString("<b>👨‍🏫 Введите фамилию преподавателя</b>")
+	sb.WriteString(repeatLineBreaks(2))
+	sb.WriteString("Например: Иванов")
+	sb.WriteString(repeatLineBreaks(2))
+	sb.WriteString("Или пропустите, если преподаватель не важен")
+	return sb.String()
+}
+
+func subConfirmationMessage(data *subscriptionData) string {
+	labNumber := data.LabNumber
+	auditorium := data.Auditorium
+	weekday := data.Weekday
+	timeStr := data.TimeInput
+	teacher := data.Teacher
+
+	var sb strings.Builder
+	sb.WriteString("<b>✅ Создать подписку?</b>")
+	sb.WriteString(repeatLineBreaks(2))
+	sb.WriteString(fmt.Sprintf("<b>📚 Лаба:</b> %d", labNumber))
+	sb.WriteString(repeatLineBreaks(2))
+	sb.WriteString(fmt.Sprintf("<b>🚪 Аудитория:</b> %d", auditorium))
+
+	if weekday != "" {
+		sb.WriteString(repeatLineBreaks(2))
+		sb.WriteString(fmt.Sprintf("<b>📅 День:</b> %s", weekday))
+	}
+
+	if timeStr != "" {
+		sb.WriteString(repeatLineBreaks(2))
+		sb.WriteString(fmt.Sprintf("<b>🕐 Время:</b> %s", timeStr))
+	}
+
+	if teacher != "" {
+		sb.WriteString(repeatLineBreaks(2))
+		sb.WriteString(fmt.Sprintf("<b>👨‍🏫 Преподаватель:</b> %s", teacher))
+	}
+
 	return sb.String()
 }
 
@@ -54,6 +122,26 @@ func subLabNumberValidationErrorMessage() string {
 func subAuditoriumNumberValidationErrorMessage() string {
 	var sb strings.Builder
 	sb.WriteString("<b>❌ Номер аудитории должен быть числом в диапазоне от 1 до 999</b>")
+	return sb.String()
+}
+
+func subTimeValidationErrorMessage() string {
+	var sb strings.Builder
+	sb.WriteString("<b>❌ Неверный формат времени</b>")
+	sb.WriteString(repeatLineBreaks(2))
+	sb.WriteString("Введите время в формате ЧЧ:ММ, например: 14:30")
+	return sb.String()
+}
+
+func subTeacherValidationErrorMessage() string {
+	var sb strings.Builder
+	sb.WriteString("<b>❌ Фамилия преподавателя не может быть пустой</b>")
+	return sb.String()
+}
+
+func subCancelledMessage() string {
+	var sb strings.Builder
+	sb.WriteString("<b>❌ Создание подписки отменено</b>")
 	return sb.String()
 }
 
@@ -77,25 +165,31 @@ func subCreationSuccessMessage(labNumber, labAuditorium int) string {
 	return sb.String()
 }
 
-func unsubInvalidArgumentsMessage() string {
+func unsubEmptyListMessage() string {
 	var sb strings.Builder
-	sb.WriteString("<b>❌ Некорректные аргументы.</b>")
+	sb.WriteString("<b>🔍 У вас нет подписок на лабы</b>")
 	sb.WriteString(repeatLineBreaks(2))
-	sb.WriteString("<b>Использование: /unsub &lt;номер подписки в списке&gt;</b>")
-	sb.WriteString(repeatLineBreaks(2))
-	sb.WriteString("<b>Чтобы просмотреть список используйте команду /list</b>")
+	sb.WriteString("Используйте команду /sub для создания подписки")
 	return sb.String()
 }
 
-func unsubInvalidSubNumberMessage() string {
+func unsubSelectMessage() string {
 	var sb strings.Builder
-	sb.WriteString("<b>❌ Номер подписки должен быть числом</b>")
+	sb.WriteString("<b>🗑️ Выберите подписку для удаления:</b>")
 	return sb.String()
 }
 
-func unsubSubNumberValidationErrorMessage(subsLen int) string {
+func unsubConfirmDeleteAllMessage() string {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("<b>❌ Номер подписки должен быть числом в диапазоне от 1 до числа ваших подписок - %d</b>", subsLen))
+	sb.WriteString("<b>⚠️ Удалить все подписки?</b>")
+	sb.WriteString(repeatLineBreaks(2))
+	sb.WriteString("Это действие нельзя отменить")
+	return sb.String()
+}
+
+func unsubDeleteAllSuccessMessage(count int) string {
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("<b>✅ Удалено подписок: %d</b>", count))
 	return sb.String()
 }
 
@@ -117,15 +211,16 @@ func unsubErrorMessage(err error) string {
 
 func unsubSuccessMessage(labNumber, labAuditorium int) string {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("✅ Вы больше не подписаны на лабу №%d в ауд. №%d", labNumber, labAuditorium))
+	sb.WriteString(fmt.Sprintf("<b>✅ Вы больше не подписаны на лабу №%d в ауд. №%d</b>",
+		labNumber, labAuditorium))
 	return sb.String()
 }
 
 func listEmptySubsMessage() string {
 	var sb strings.Builder
-	sb.WriteString("<b>🔍 У вас нет подписок на лабы.</b>")
+	sb.WriteString("<b>🔍 У вас нет подписок на лабы</b>")
 	sb.WriteString(repeatLineBreaks(2))
-	sb.WriteString("Используйте команду /sub &lt;номер лабы&gt; &lt;номер аудитории&gt;")
+	sb.WriteString("Используйте команду /sub для создания подписки")
 	return sb.String()
 }
 
@@ -134,7 +229,8 @@ func listSubsSuccessMessage(subs []model.Subscription) string {
 	sb.WriteString("<b>📋 Ваши подписки:</b>")
 	sb.WriteString(repeatLineBreaks(2))
 	for idx, sub := range subs {
-		sb.WriteString(fmt.Sprintf("<b>%d. Лаба №%d, ауд. №%d</b>", idx+1, sub.LabNumber, sub.LabAuditorium))
+		sb.WriteString(fmt.Sprintf("<b>%d.</b> Лаба №%d, ауд. №%d", idx+1,
+			sub.LabNumber, sub.LabAuditorium))
 		if idx == len(subs)-1 {
 			break
 		}
@@ -159,29 +255,39 @@ func statsSuccessMessage(snapshot *metrics.Metrics) string {
 	sb.WriteString(repeatLineBreaks(2))
 	sb.WriteString("<b>🔍 Опросы:</b>")
 	sb.WriteString(repeatLineBreaks(1))
-	sb.WriteString(fmt.Sprintf("  Всего опросов: <b>%d</b>", snapshot.PollingMetrics.TotalPolls))
+	sb.WriteString(fmt.Sprintf("  Всего опросов: <b>%d</b>",
+		snapshot.PollingMetrics.TotalPolls))
 	sb.WriteString(repeatLineBreaks(1))
-	sb.WriteString(fmt.Sprintf("  Режим: <b>%s</b>", formatPollingMode(snapshot.PollingMetrics.Mode)))
+	sb.WriteString(fmt.Sprintf("  Режим: <b>%s</b>",
+		formatPollingMode(snapshot.PollingMetrics.Mode)))
 	sb.WriteString(repeatLineBreaks(1))
-	sb.WriteString(fmt.Sprintf("  Ошибки парсинга: <b>%d</b>", snapshot.PollingMetrics.ParsingErrors))
+	sb.WriteString(fmt.Sprintf("  Ошибки парсинга: <b>%d</b>",
+		snapshot.PollingMetrics.ParsingErrors))
 	sb.WriteString(repeatLineBreaks(1))
-	sb.WriteString(fmt.Sprintf("  Ошибки получения: <b>%d</b>", snapshot.PollingMetrics.FetchErrors))
+	sb.WriteString(fmt.Sprintf("  Ошибки получения: <b>%d</b>",
+		snapshot.PollingMetrics.FetchErrors))
 	sb.WriteString(repeatLineBreaks(1))
-	sb.WriteString(fmt.Sprintf("  Среднее время опроса: <b>%s</b>", snapshot.PollingMetrics.AveragePollingTime.Round(time.Millisecond)))
+	sb.WriteString(fmt.Sprintf("  Среднее время опроса: <b>%s</b>",
+		snapshot.PollingMetrics.AveragePollingTime.Round(time.Millisecond)))
 	sb.WriteString(repeatLineBreaks(1))
-	sb.WriteString(fmt.Sprintf("  Среднее количество слотов: <b>%d</b>", snapshot.PollingMetrics.AverageSlotNumber))
+	sb.WriteString(fmt.Sprintf("  Среднее количество слотов: <b>%d</b>",
+		snapshot.PollingMetrics.AverageSlotNumber))
 	sb.WriteString(repeatLineBreaks(2))
 	sb.WriteString("<b>🔔 Уведомления:</b>")
 	sb.WriteString(repeatLineBreaks(1))
-	sb.WriteString(fmt.Sprintf("  Всего уведомлений: <b>%d</b>", snapshot.NotificationMetrics.TotalNotifications))
+	sb.WriteString(fmt.Sprintf("  Всего уведомлений: <b>%d</b>",
+		snapshot.NotificationMetrics.TotalNotifications))
 	sb.WriteString(repeatLineBreaks(1))
-	sb.WriteString(fmt.Sprintf("  Размер кеша: <b>%d</b>", snapshot.NotificationMetrics.CacheLength))
+	sb.WriteString(fmt.Sprintf("  Размер кеша: <b>%d</b>",
+		snapshot.NotificationMetrics.CacheLength))
 	sb.WriteString(repeatLineBreaks(1))
-	sb.WriteString(fmt.Sprintf("  Среднее количество уведомлений: <b>%d</b>", snapshot.NotificationMetrics.AverageNotifications))
+	sb.WriteString(fmt.Sprintf("  Среднее количество уведомлений: <b>%d</b>",
+		snapshot.NotificationMetrics.AverageNotifications))
 	sb.WriteString(repeatLineBreaks(2))
 	sb.WriteString("<b>📝 Подписки:</b>")
 	sb.WriteString(repeatLineBreaks(1))
-	sb.WriteString(fmt.Sprintf("  Активных подписок: <b>%d</b>", snapshot.SubscriptionMetrics.TotalSubscriptions))
+	sb.WriteString(fmt.Sprintf("  Активных подписок: <b>%d</b>",
+		snapshot.SubscriptionMetrics.TotalSubscriptions))
 	return sb.String()
 }
 
@@ -195,8 +301,8 @@ func notifySuccessMessage(slot *model.Slot) string {
 	sb.WriteString(repeatLineBreaks(2))
 	sb.WriteString("<b>🗓️ Когда:</b>")
 	sb.WriteString(repeatLineBreaks(2))
-	for idx, dateTime := range slot.Available {
-		sb.WriteString(fmt.Sprintf("<b>%d. %s</b>", idx+1, formatDateTime(dateTime)))
+	for _, dateTime := range slot.Available {
+		sb.WriteString(fmt.Sprintf("<b>%s</b>", formatDateTime(dateTime)))
 		sb.WriteString(repeatLineBreaks(2))
 	}
 	sb.WriteString(fmt.Sprintf("<b>🔗 <a href='%s'>Ссылка на запись</a></b>", slot.URL))
