@@ -195,8 +195,8 @@ func notifySuccessMessage(slot *model.Slot) string {
 	sb.WriteString(repeatLineBreaks(2))
 	sb.WriteString("<b>🗓️ Когда:</b>")
 	sb.WriteString(repeatLineBreaks(2))
-	for _, dateTime := range slot.Available {
-		sb.WriteString(fmt.Sprintf("<b>%s</b>", formatDateTime(dateTime)))
+	for idx, dateTime := range slot.Available {
+		sb.WriteString(fmt.Sprintf("<b>%d. %s</b>", idx+1, formatDateTime(dateTime)))
 		sb.WriteString(repeatLineBreaks(2))
 	}
 	sb.WriteString(fmt.Sprintf("<b>🔗 <a href='%s'>Ссылка на запись</a></b>", slot.URL))
