@@ -29,11 +29,11 @@ func New(repo Repo) Service {
 
 func (s *subscriptionService) Start(ctx context.Context) error {
 	slog.Info("Starting", "service", logger.ServiceSubscription)
-	subs, err := s.subRepo.List(ctx)
+	subs, err := s.subRepo.Count(ctx)
 	if err != nil {
 		return err
 	}
-	metrics.Global().RecordSubscriptionResults(len(subs))
+	metrics.Global().RecordSubscriptionResults(subs)
 	slog.Info("Started", "service", logger.ServiceSubscription)
 	return nil
 }
@@ -75,10 +75,24 @@ func (s *subscriptionService) FindSubscriptionsByUserID(ctx context.Context, use
 }
 
 func (s *subscriptionService) FindSubscriptionsBySlotInfo(ctx context.Context, slot model.Slot) ([]model.Subscription, error) {
+	res := make([]model.Subscription, 0)
+
 	subs, err := s.subRepo.FindBySlotInfo(ctx, slot.LabNumber, slot.LabAuditorium)
 	if err != nil {
 		slog.Error("Failed to find subscriptions", "slot", slot, "err", err)
 	}
 
-	return subs, err
+	for _, sub := range subs {
+		for _, time := range slot.Available {
+			day := time.Weekday()
+			dayTime := time.Format("15:04")
+
+			// TODO: implement check for teacher
+			if day == sub.Weekday && dayTime == sub.DayTime {
+				res = append(res, sub)
+			}
+		}
+	}
+
+	return res, err
 }
