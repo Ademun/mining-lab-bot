@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 
+	"github.com/Ademun/mining-lab-bot/pkg/errs"
 	"github.com/Ademun/mining-lab-bot/pkg/logger"
 	"github.com/Ademun/mining-lab-bot/pkg/metrics"
 	"github.com/Ademun/mining-lab-bot/pkg/model"
@@ -46,7 +47,7 @@ func (s *subscriptionService) Subscribe(ctx context.Context, sub model.Subscript
 	}
 
 	if exists {
-		return ErrSubscriptionExists
+		return errs.ErrSubscriptionExists
 	}
 
 	metrics.Global().RecordSubscriptionResults(1)

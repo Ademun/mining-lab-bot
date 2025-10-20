@@ -58,3 +58,14 @@ type Notification struct {
 	PreferredTime time.Time
 	Slot          Slot
 }
+
+type Teacher struct {
+	UUID       string
+	Name       string
+	Weekday    time.Weekday
+	TimeStart  string
+	TimeEnd    string
+	Auditorium int
+	WeekNumber int
+	Difficulty int
+}

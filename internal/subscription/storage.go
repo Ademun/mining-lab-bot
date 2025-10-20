@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/Ademun/mining-lab-bot/pkg/errs"
 	"github.com/Ademun/mining-lab-bot/pkg/model"
 )
 
@@ -34,7 +35,7 @@ create table if not exists subscriptions (
 )`
 	_, err := db.ExecContext(ctx, query)
 	if err != nil {
-		return nil, &ErrQueryExecution{"Init", query, err}
+		return nil, &errs.ErrQueryExecution{Operation: "Init", Query: query, Err: err}
 	}
 
 	return &subscriptionRepo{db: db}, nil
@@ -45,7 +46,7 @@ func (s *subscriptionRepo) Create(ctx context.Context, sub model.Subscription) e
 
 	_, err := s.db.ExecContext(ctx, query, sub.UUID, sub.UserID, sub.ChatID, sub.LabNumber, sub.LabAuditorium, sub.Weekday, sub.DayTime, sub.Teacher)
 	if err != nil {
-		return &ErrQueryExecution{"Create", query, err}
+		return &errs.ErrQueryExecution{Operation: "Create", Query: query, Err: err}
 	}
 
 	return nil
@@ -56,7 +57,7 @@ func (s *subscriptionRepo) Delete(ctx context.Context, uuid string) error {
 
 	_, err := s.db.ExecContext(ctx, query, uuid)
 	if err != nil {
-		return &ErrQueryExecution{"Delete", query, err}
+		return &errs.ErrQueryExecution{Operation: "Delete", Query: query, Err: err}
 	}
 
 	return nil
@@ -71,7 +72,7 @@ func (s *subscriptionRepo) Exists(ctx context.Context, userID, labNumber, labAud
 		if errors.Is(err, sql.ErrNoRows) {
 			return false, nil
 		}
-		return false, &ErrQueryExecution{"Exists", query, err}
+		return false, &errs.ErrQueryExecution{Operation: "Exists", Query: query, Err: err}
 	}
 
 	return exists, nil
@@ -82,7 +83,7 @@ func (s *subscriptionRepo) FindByUserID(ctx context.Context, userID int) ([]mode
 
 	rows, err := s.db.QueryContext(ctx, query, userID)
 	if err != nil {
-		return nil, &ErrQueryExecution{"FindByUserID", query, err}
+		return nil, &errs.ErrQueryExecution{Operation: "FindByUserID", Query: query, Err: err}
 	}
 	defer rows.Close()
 
@@ -91,13 +92,13 @@ func (s *subscriptionRepo) FindByUserID(ctx context.Context, userID int) ([]mode
 		var sub model.Subscription
 		err := rows.Scan(&sub.UUID, &sub.UserID, &sub.ChatID, &sub.LabNumber, &sub.LabAuditorium, &sub.Weekday, &sub.DayTime, &sub.Teacher)
 		if err != nil {
-			return nil, &ErrRowIteration{"FindByUserID", query, err}
+			return nil, &errs.ErrRowIteration{Operation: "FindByUserID", Query: query, Err: err}
 		}
 		subs = append(subs, sub)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, &ErrRowIteration{"FindByUserID", query, err}
+		return nil, &errs.ErrRowIteration{Operation: "FindByUserID", Query: query, Err: err}
 	}
 
 	return subs, nil
@@ -107,7 +108,7 @@ func (s *subscriptionRepo) FindBySlotInfo(ctx context.Context, labNumber, labAud
 	query := `select uuid, user_id, chat_id, lab_number, lab_auditorium, weekday, day_time, teacher from subscriptions where lab_number = ? and lab_auditorium = ?`
 	rows, err := s.db.QueryContext(ctx, query, labNumber, labAuditorium)
 	if err != nil {
-		return nil, &ErrQueryExecution{"FindBySlotInfo", query, err}
+		return nil, &errs.ErrQueryExecution{Operation: "FindBySlotInfo", Query: query, Err: err}
 	}
 	defer rows.Close()
 
@@ -116,13 +117,13 @@ func (s *subscriptionRepo) FindBySlotInfo(ctx context.Context, labNumber, labAud
 		var sub model.Subscription
 		err := rows.Scan(&sub.UUID, &sub.UserID, &sub.ChatID, &sub.LabNumber, &sub.LabAuditorium, &sub.Weekday, &sub.DayTime)
 		if err != nil {
-			return nil, &ErrRowIteration{"FindBySlotInfo", query, err}
+			return nil, &errs.ErrRowIteration{Operation: "FindBySlotInfo", Query: query, Err: err}
 		}
 		subs = append(subs, sub)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, &ErrRowIteration{"FindBySlotInfo", query, err}
+		return nil, &errs.ErrRowIteration{Operation: "FindBySlotInfo", Query: query, Err: err}
 	}
 
 	return subs, nil
@@ -134,7 +135,7 @@ func (s *subscriptionRepo) Count(ctx context.Context) (int, error) {
 	var count int
 	err := s.db.QueryRowContext(ctx, query).Scan(&count)
 	if err != nil {
-		return -1, &ErrQueryExecution{"Count", query, err}
+		return -1, &errs.ErrQueryExecution{Operation: "Count", Query: query, Err: err}
 	}
 
 	return count, nil

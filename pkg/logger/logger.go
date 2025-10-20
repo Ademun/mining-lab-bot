@@ -9,6 +9,7 @@ const (
 	ServicePolling      = "polling"
 	ServiceNotification = "notification"
 	ServiceSubscription = "subscription"
+	ServiceTeacher      = "teacher"
 	TelegramBot         = "bot"
 )
 
