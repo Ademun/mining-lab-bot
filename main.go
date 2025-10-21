@@ -13,6 +13,7 @@ import (
 	"github.com/Ademun/mining-lab-bot/internal/notification"
 	"github.com/Ademun/mining-lab-bot/internal/polling"
 	"github.com/Ademun/mining-lab-bot/internal/subscription"
+	"github.com/Ademun/mining-lab-bot/internal/teacher"
 	"github.com/Ademun/mining-lab-bot/pkg/config"
 	"github.com/Ademun/mining-lab-bot/pkg/logger"
 	_ "github.com/mattn/go-sqlite3"
@@ -58,7 +59,14 @@ func main() {
 	bot.SetNotificationService(notificationService)
 	bot.Start(ctx)
 
-	pollingService := polling.New(notificationService, &cfg.PollingConfig)
+	teacherRepo, err := teacher.NewRepo(ctx, db)
+	if err != nil {
+		slog.Error("Fatal error", "error", err)
+		return
+	}
+	teacherService := teacher.New(teacherRepo)
+
+	pollingService := polling.New(notificationService, teacherService, &cfg.PollingConfig)
 	if err := pollingService.Start(ctx); err != nil {
 		slog.Error("Fatal error", "error", err)
 		return

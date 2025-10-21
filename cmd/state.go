@@ -1,24 +1,15 @@
 package cmd
 
-import "sync"
-
-type conversationStep string
-
-const (
-	stepAwaitingLabNumber  conversationStep = "awaiting_lab_number"
-	stepAwaitingAuditorium conversationStep = "awaiting_auditorium"
-	stepAwaitingWeekday    conversationStep = "awaiting_weekday"
-	stepAwaitingTime       conversationStep = "awaiting_time"
-	stepAwaitingTeacher    conversationStep = "awaiting_teacher"
-	stepConfirming         conversationStep = "confirming"
+import (
+	"sync"
+	"time"
 )
 
 type subscriptionData struct {
-	LabNumber  int
-	Auditorium int
-	Weekday    string
-	TimeInput  string
-	Teacher    string
+	LabNumber     int
+	LabAuditorium int
+	Weekday       *time.Weekday
+	Daytime       string
 }
 
 type userState struct {
@@ -57,9 +48,12 @@ func (sm *stateManager) clear(userID int64) {
 	delete(sm.states, userID)
 }
 
-func (sm *stateManager) exists(userID int64) bool {
-	sm.mu.RLock()
-	defer sm.mu.RUnlock()
-	_, exists := sm.states[userID]
-	return exists
-}
+type conversationStep string
+
+const (
+	stepAwaitingLabNumber     conversationStep = "awaiting_lab_number"
+	stepAwaitingLabAuditorium conversationStep = "awaiting_lab_auditorium"
+	stepAwaitingWeekday       conversationStep = "awaiting_weekday"
+	stepAwaitingDaytime       conversationStep = "awaiting_daytime"
+	stepConfirming            conversationStep = "confirming"
+)

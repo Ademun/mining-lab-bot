@@ -11,15 +11,15 @@ func createWeekdayKeyboard() *models.InlineKeyboardMarkup {
 	return &models.InlineKeyboardMarkup{
 		InlineKeyboard: [][]models.InlineKeyboardButton{
 			{
-				{Text: "ПН", CallbackData: "weekday:monday"},
-				{Text: "ВТ", CallbackData: "weekday:tuesday"},
-				{Text: "СР", CallbackData: "weekday:wednesday"},
-				{Text: "ЧТ", CallbackData: "weekday:thursday"},
+				{Text: "ПН", CallbackData: "weekday:1"},
+				{Text: "ВТ", CallbackData: "weekday:2"},
+				{Text: "СР", CallbackData: "weekday:3"},
+				{Text: "ЧТ", CallbackData: "weekday:4"},
 			},
 			{
-				{Text: "ПТ", CallbackData: "weekday:friday"},
-				{Text: "СБ", CallbackData: "weekday:saturday"},
-				{Text: "ВС", CallbackData: "weekday:sunday"},
+				{Text: "ПТ", CallbackData: "weekday:5"},
+				{Text: "СБ", CallbackData: "weekday:6"},
+				{Text: "ВС", CallbackData: "weekday:0"},
 			},
 			{
 				{Text: "⏭️ Пропустить", CallbackData: "skip:weekday"},

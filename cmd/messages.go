@@ -83,10 +83,9 @@ func subAskTeacherMessage() string {
 
 func subConfirmationMessage(data *subscriptionData) string {
 	labNumber := data.LabNumber
-	auditorium := data.Auditorium
+	auditorium := data.LabAuditorium
 	weekday := data.Weekday
-	timeStr := data.TimeInput
-	teacher := data.Teacher
+	timeStr := data.Daytime
 
 	var sb strings.Builder
 	sb.WriteString("<b>✅ Создать подписку?</b>")
@@ -95,19 +94,14 @@ func subConfirmationMessage(data *subscriptionData) string {
 	sb.WriteString(repeatLineBreaks(2))
 	sb.WriteString(fmt.Sprintf("<b>🚪 Аудитория:</b> %d", auditorium))
 
-	if weekday != "" {
+	if weekday != nil {
 		sb.WriteString(repeatLineBreaks(2))
-		sb.WriteString(fmt.Sprintf("<b>📅 День:</b> %s", weekday))
+		sb.WriteString(fmt.Sprintf("<b>📅 День:</b> %s", weekday.String()))
 	}
 
 	if timeStr != "" {
 		sb.WriteString(repeatLineBreaks(2))
 		sb.WriteString(fmt.Sprintf("<b>🕐 Время:</b> %s", timeStr))
-	}
-
-	if teacher != "" {
-		sb.WriteString(repeatLineBreaks(2))
-		sb.WriteString(fmt.Sprintf("<b>👨‍🏫 Преподаватель:</b> %s", teacher))
 	}
 
 	return sb.String()
@@ -130,12 +124,6 @@ func subTimeValidationErrorMessage() string {
 	sb.WriteString("<b>❌ Неверный формат времени</b>")
 	sb.WriteString(repeatLineBreaks(2))
 	sb.WriteString("Введите время в формате ЧЧ:ММ, например: 14:30")
-	return sb.String()
-}
-
-func subTeacherValidationErrorMessage() string {
-	var sb strings.Builder
-	sb.WriteString("<b>❌ Фамилия преподавателя не может быть пустой</b>")
 	return sb.String()
 }
 
@@ -301,8 +289,11 @@ func notifySuccessMessage(slot *model.Slot) string {
 	sb.WriteString(repeatLineBreaks(2))
 	sb.WriteString("<b>🗓️ Когда:</b>")
 	sb.WriteString(repeatLineBreaks(2))
-	for _, dateTime := range slot.Available {
-		sb.WriteString(fmt.Sprintf("<b>%s</b>", formatDateTime(dateTime)))
+	for _, available := range slot.Available {
+		sb.WriteString(fmt.Sprintf("<b>%s </b>", formatDateTime(available.Time)))
+		for _, teacher := range available.Teachers {
+			sb.WriteString(fmt.Sprintf("<b>%s </b>", teacher.Name))
+		}
 		sb.WriteString(repeatLineBreaks(2))
 	}
 	sb.WriteString(fmt.Sprintf("<b>🔗 <a href='%s'>Ссылка на запись</a></b>", slot.URL))

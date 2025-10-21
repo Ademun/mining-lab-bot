@@ -29,14 +29,19 @@ type Slot struct {
 	LabNumber     int
 	LabAuditorium int
 	LabType       LabType
-	Available     []time.Time
+	Available     []TimeTeachers
 	URL           string
+}
+
+type TimeTeachers struct {
+	Time     time.Time
+	Teachers []Teacher
 }
 
 func (s Slot) Key() string {
 	var timeKey strings.Builder
-	for _, dateTime := range s.Available {
-		timeKey.WriteString(dateTime.Format(time.RFC3339))
+	for _, available := range s.Available {
+		timeKey.WriteString(available.Time.Format(time.RFC3339))
 	}
 	return fmt.Sprintf("%d_%s", s.ID, timeKey.String())
 }
@@ -47,9 +52,8 @@ type Subscription struct {
 	ChatID        int
 	LabNumber     int
 	LabAuditorium int
-	Weekday       time.Weekday
+	Weekday       *time.Weekday
 	DayTime       string
-	Teacher       string
 }
 
 type Notification struct {
@@ -60,12 +64,11 @@ type Notification struct {
 }
 
 type Teacher struct {
-	UUID       string
+	ID         int
 	Name       string
+	Auditorium int
+	WeekNumber int
 	Weekday    time.Weekday
 	TimeStart  string
 	TimeEnd    string
-	Auditorium int
-	WeekNumber int
-	Difficulty int
 }

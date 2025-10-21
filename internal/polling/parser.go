@@ -1,6 +1,7 @@
 package polling
 
 import (
+	"context"
 	"errors"
 	"regexp"
 	"strconv"
@@ -12,7 +13,7 @@ import (
 
 var labNameRegexp = regexp.MustCompile(`\p{L}+\s+\p{L}+\s+№\s*(\d+).*?\((\d+)\s*\p{L}+\.\)(?:.*?\))?\s*(\p{L}.+)$`)
 
-func ParseServiceData(data *ServiceData, serviceID int) ([]model.Slot, error) {
+func (s *pollingService) ParseServiceData(ctx context.Context, data *ServiceData, serviceID int) ([]model.Slot, error) {
 	masters := data.Data.Masters
 
 	if len(masters.MasterMap) == 0 {
@@ -48,7 +49,7 @@ func ParseServiceData(data *ServiceData, serviceID int) ([]model.Slot, error) {
 			continue
 		}
 
-		availableTimes := make([]time.Time, 0)
+		available := make([]model.TimeTeachers, 0)
 		for _, timeString := range times.TimesMap[id] {
 			timestamp, err := parseTimeString(timeString)
 			if err != nil {
@@ -58,7 +59,11 @@ func ParseServiceData(data *ServiceData, serviceID int) ([]model.Slot, error) {
 				})
 				continue
 			}
-			availableTimes = append(availableTimes, timestamp)
+			teachers := s.teacherService.FindTeachersForTime(ctx, timestamp, labAuditorium)
+			available = append(available, model.TimeTeachers{
+				Time:     timestamp,
+				Teachers: teachers,
+			})
 		}
 
 		slot := model.Slot{
@@ -67,7 +72,7 @@ func ParseServiceData(data *ServiceData, serviceID int) ([]model.Slot, error) {
 			LabName:       labName,
 			LabAuditorium: labAuditorium,
 			LabType:       labType,
-			Available:     availableTimes,
+			Available:     available,
 			URL:           buildURL(serviceID),
 		}
 

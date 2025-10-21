@@ -3,12 +3,12 @@ package polling
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"sync"
 	"time"
 
 	"github.com/Ademun/mining-lab-bot/internal/notification"
+	"github.com/Ademun/mining-lab-bot/internal/teacher"
 	"github.com/Ademun/mining-lab-bot/pkg/config"
 	"github.com/Ademun/mining-lab-bot/pkg/logger"
 	"github.com/Ademun/mining-lab-bot/pkg/metrics"
@@ -21,18 +21,20 @@ type Service interface {
 }
 
 type pollingService struct {
-	notifService notification.Service
-	options      config.PollingConfig
-	serviceIDs   []int
-	mutex        *sync.RWMutex
+	notifService   notification.Service
+	teacherService teacher.Service
+	options        config.PollingConfig
+	serviceIDs     []int
+	mutex          *sync.RWMutex
 }
 
-func New(notifService notification.Service, opts *config.PollingConfig) Service {
+func New(notifService notification.Service, teacherService teacher.Service, opts *config.PollingConfig) Service {
 	return &pollingService{
-		notifService: notifService,
-		options:      *opts,
-		serviceIDs:   make([]int, 0),
-		mutex:        &sync.RWMutex{},
+		notifService:   notifService,
+		teacherService: teacherService,
+		options:        *opts,
+		serviceIDs:     make([]int, 0),
+		mutex:          &sync.RWMutex{},
 	}
 }
 
@@ -90,7 +92,7 @@ func (s *pollingService) poll(ctx context.Context) {
 	defer s.mutex.RUnlock()
 
 	start := time.Now()
-	slots, errs := PollAvailableSlots(ctx, s.serviceIDs, fetchRate)
+	slots, errs := s.PollAvailableSlots(ctx, s.serviceIDs, fetchRate)
 	total := time.Since(start)
 
 	parseErrs, fetchErrs := 0, 0
@@ -139,8 +141,4 @@ func (s *pollingService) updateIDs(ctx context.Context) {
 	s.mutex.Lock()
 	s.serviceIDs = ids
 	s.mutex.Unlock()
-
-	for _, id := range ids {
-		fmt.Println(id)
-	}
 }

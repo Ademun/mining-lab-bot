@@ -9,7 +9,7 @@ import (
 	"golang.org/x/time/rate"
 )
 
-func PollAvailableSlots(ctx context.Context, ids []int, fetchRate time.Duration) ([]model.Slot, []error) {
+func (s *pollingService) PollAvailableSlots(ctx context.Context, ids []int, fetchRate time.Duration) ([]model.Slot, []error) {
 	slots := make([]model.Slot, 0)
 	results := make(chan model.Slot)
 
@@ -31,7 +31,7 @@ func PollAvailableSlots(ctx context.Context, ids []int, fetchRate time.Duration)
 						errChan <- err
 						return
 					}
-					res, err := ParseServiceData(data, serviceID)
+					res, err := s.ParseServiceData(ctx, data, serviceID)
 					if err != nil {
 						errChan <- err
 						return

@@ -3,7 +3,9 @@ package cmd
 import (
 	"context"
 	"log"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Ademun/mining-lab-bot/pkg/model"
 	"github.com/go-telegram/bot"
@@ -38,9 +40,12 @@ func (b *telegramBot) callbackWeekdayHandler(ctx context.Context, api *bot.Bot, 
 		return
 	}
 
-	weekday := strings.TrimPrefix(update.CallbackQuery.Data, "weekday:")
-	state.Data.Weekday = weekday
-	state.Step = stepAwaitingTime
+	weekdayString := strings.TrimPrefix(update.CallbackQuery.Data, "weekday:")
+	weekdayInt, _ := strconv.Atoi(weekdayString)
+	weekday := time.Weekday(weekdayInt)
+
+	state.Data.Weekday = &weekday
+	state.Step = stepAwaitingDaytime
 	b.stateManager.set(userID, state)
 
 	api.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
@@ -48,10 +53,9 @@ func (b *telegramBot) callbackWeekdayHandler(ctx context.Context, api *bot.Bot, 
 	})
 
 	api.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID:      chatID,
-		Text:        subAskTimeMessage(),
-		ParseMode:   models.ParseModeHTML,
-		ReplyMarkup: createSkipKeyboard("time"),
+		ChatID:    chatID,
+		Text:      subAskTimeMessage(),
+		ParseMode: models.ParseModeHTML,
 	})
 }
 
@@ -78,33 +82,8 @@ func (b *telegramBot) callbackSkipHandler(ctx context.Context, api *bot.Bot, upd
 		if state.Step != stepAwaitingWeekday {
 			return
 		}
-		state.Data.Weekday = ""
-		state.Step = stepAwaitingTime
-		b.stateManager.set(userID, state)
-		api.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID:      chatID,
-			Text:        subAskTimeMessage(),
-			ParseMode:   models.ParseModeHTML,
-			ReplyMarkup: createSkipKeyboard("time"),
-		})
-	case "time":
-		if state.Step != stepAwaitingTime {
-			return
-		}
-		state.Data.TimeInput = ""
-		state.Step = stepAwaitingTeacher
-		b.stateManager.set(userID, state)
-		api.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID:      chatID,
-			Text:        subAskTeacherMessage(),
-			ParseMode:   models.ParseModeHTML,
-			ReplyMarkup: createSkipKeyboard("teacher"),
-		})
-	case "teacher":
-		if state.Step != stepAwaitingTeacher {
-			return
-		}
-		state.Data.Teacher = ""
+		state.Data.Weekday = nil
+		state.Data.Daytime = ""
 		state.Step = stepConfirming
 		b.stateManager.set(userID, state)
 		api.SendMessage(ctx, &bot.SendMessageParams{
@@ -150,11 +129,13 @@ func (b *telegramBot) callbackConfirmSubHandler(ctx context.Context, api *bot.Bo
 		UserID:        int(userID),
 		ChatID:        int(chatID),
 		LabNumber:     state.Data.LabNumber,
-		LabAuditorium: state.Data.Auditorium,
+		LabAuditorium: state.Data.LabAuditorium,
+		Weekday:       state.Data.Weekday,
+		DayTime:       state.Data.Daytime,
 	}
 
-	if state.Data.TimeInput != "" {
-		_, err := parseTime(state.Data.TimeInput)
+	if state.Data.Daytime != "" {
+		_, err := parseTime(state.Data.Daytime)
 		if err != nil {
 			api.SendMessage(ctx, &bot.SendMessageParams{
 				ChatID:    chatID,

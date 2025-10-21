@@ -23,13 +23,11 @@ func (b *telegramBot) messageHandler(ctx context.Context, api *bot.Bot, update *
 
 	switch state.Step {
 	case stepAwaitingLabNumber:
-		b.handleAwaitingLabNumber(ctx, api, chatID, userID, text, state)
-	case stepAwaitingAuditorium:
-		b.handleAwaitingAuditorium(ctx, api, chatID, userID, text, state)
-	case stepAwaitingTime:
-		b.handleAwaitingTime(ctx, api, chatID, userID, text, state)
-	case stepAwaitingTeacher:
-		b.handleAwaitingTeacher(ctx, api, chatID, userID, text, state)
+		b.awaitingLabNumberHandler(ctx, api, chatID, userID, text, state)
+	case stepAwaitingLabAuditorium:
+		b.awaitingLabAuditoriumHandler(ctx, api, chatID, userID, text, state)
+	case stepAwaitingDaytime:
+		b.handleAwaitingDaytime(ctx, api, chatID, userID, text, state)
 	default:
 		b.defaultHandler(ctx, api, update)
 	}
@@ -160,7 +158,7 @@ func (b *telegramBot) statsHandler(ctx context.Context, api *bot.Bot, update *mo
 	})
 }
 
-func (b *telegramBot) handleAwaitingLabNumber(ctx context.Context, api *bot.Bot, chatID, userID int64, text string, state *userState) {
+func (b *telegramBot) awaitingLabNumberHandler(ctx context.Context, api *bot.Bot, chatID, userID int64, text string, state *userState) {
 	labNumber, err := strconv.Atoi(text)
 	if err != nil || labNumber < 1 || labNumber > 999 {
 		api.SendMessage(ctx, &bot.SendMessageParams{
@@ -172,7 +170,7 @@ func (b *telegramBot) handleAwaitingLabNumber(ctx context.Context, api *bot.Bot,
 	}
 
 	state.Data.LabNumber = labNumber
-	state.Step = stepAwaitingAuditorium
+	state.Step = stepAwaitingLabAuditorium
 	b.stateManager.set(userID, state)
 
 	api.SendMessage(ctx, &bot.SendMessageParams{
@@ -181,7 +179,8 @@ func (b *telegramBot) handleAwaitingLabNumber(ctx context.Context, api *bot.Bot,
 		ParseMode: models.ParseModeHTML,
 	})
 }
-func (b *telegramBot) handleAwaitingAuditorium(ctx context.Context, api *bot.Bot, chatID, userID int64, text string, state *userState) {
+
+func (b *telegramBot) awaitingLabAuditoriumHandler(ctx context.Context, api *bot.Bot, chatID, userID int64, text string, state *userState) {
 	auditorium, err := strconv.Atoi(text)
 	if err != nil || auditorium < 1 || auditorium > 999 {
 		api.SendMessage(ctx, &bot.SendMessageParams{
@@ -192,7 +191,7 @@ func (b *telegramBot) handleAwaitingAuditorium(ctx context.Context, api *bot.Bot
 		return
 	}
 
-	state.Data.Auditorium = auditorium
+	state.Data.LabAuditorium = auditorium
 	state.Step = stepAwaitingWeekday
 	b.stateManager.set(userID, state)
 
@@ -203,7 +202,8 @@ func (b *telegramBot) handleAwaitingAuditorium(ctx context.Context, api *bot.Bot
 		ReplyMarkup: createWeekdayKeyboard(),
 	})
 }
-func (b *telegramBot) handleAwaitingTime(ctx context.Context, api *bot.Bot, chatID, userID int64, text string, state *userState) {
+
+func (b *telegramBot) handleAwaitingDaytime(ctx context.Context, api *bot.Bot, chatID, userID int64, text string, state *userState) {
 	_, err := parseTime(text)
 	if err != nil {
 		api.SendMessage(ctx, &bot.SendMessageParams{
@@ -214,8 +214,8 @@ func (b *telegramBot) handleAwaitingTime(ctx context.Context, api *bot.Bot, chat
 		return
 	}
 
-	state.Data.TimeInput = text
-	state.Step = stepAwaitingTeacher
+	state.Data.Daytime = text
+	state.Step = stepConfirming
 	b.stateManager.set(userID, state)
 
 	api.SendMessage(ctx, &bot.SendMessageParams{
@@ -223,28 +223,5 @@ func (b *telegramBot) handleAwaitingTime(ctx context.Context, api *bot.Bot, chat
 		Text:        subAskTeacherMessage(),
 		ParseMode:   models.ParseModeHTML,
 		ReplyMarkup: createSkipKeyboard("teacher"),
-	})
-}
-
-func (b *telegramBot) handleAwaitingTeacher(ctx context.Context, api *bot.Bot, chatID, userID int64, text string, state *userState) {
-	text = strings.TrimSpace(text)
-	if text == "" {
-		api.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID:    chatID,
-			Text:      subTeacherValidationErrorMessage(),
-			ParseMode: models.ParseModeHTML,
-		})
-		return
-	}
-
-	state.Data.Teacher = text
-	state.Step = stepConfirming
-	b.stateManager.set(userID, state)
-
-	api.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID:      chatID,
-		Text:        subConfirmationMessage(&state.Data),
-		ParseMode:   models.ParseModeHTML,
-		ReplyMarkup: createConfirmationKeyboard(),
 	})
 }

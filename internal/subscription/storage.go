@@ -29,9 +29,9 @@ create table if not exists subscriptions (
     user_id integer not null,
     chat_id integer not null,
     lab_number integer not null,
-    lab_auditorium integer not null
+    lab_auditorium integer not null,
     weekday integer,
-    day_time text,
+    day_time text
 )`
 	_, err := db.ExecContext(ctx, query)
 	if err != nil {
@@ -42,9 +42,9 @@ create table if not exists subscriptions (
 }
 
 func (s *subscriptionRepo) Create(ctx context.Context, sub model.Subscription) error {
-	query := `insert into subscriptions (uuid, user_id, chat_id, lab_number, lab_auditorium, weekday, day_time, teacher) values (?, ?, ?, ?, ?, ?, ?, ?)`
+	query := `insert into subscriptions (uuid, user_id, chat_id, lab_number, lab_auditorium, weekday, day_time) values (?, ?, ?, ?, ?, ?, ?)`
 
-	_, err := s.db.ExecContext(ctx, query, sub.UUID, sub.UserID, sub.ChatID, sub.LabNumber, sub.LabAuditorium, sub.Weekday, sub.DayTime, sub.Teacher)
+	_, err := s.db.ExecContext(ctx, query, sub.UUID, sub.UserID, sub.ChatID, sub.LabNumber, sub.LabAuditorium, sub.Weekday, sub.DayTime)
 	if err != nil {
 		return &errs.ErrQueryExecution{Operation: "Create", Query: query, Err: err}
 	}
@@ -79,7 +79,7 @@ func (s *subscriptionRepo) Exists(ctx context.Context, userID, labNumber, labAud
 }
 
 func (s *subscriptionRepo) FindByUserID(ctx context.Context, userID int) ([]model.Subscription, error) {
-	query := `select uuid, user_id, chat_id, lab_number, lab_auditorium, weekday, day_time, teacher from subscriptions where user_id = ?`
+	query := `select uuid, user_id, chat_id, lab_number, lab_auditorium, weekday, day_time from subscriptions where user_id = ?`
 
 	rows, err := s.db.QueryContext(ctx, query, userID)
 	if err != nil {
@@ -90,7 +90,7 @@ func (s *subscriptionRepo) FindByUserID(ctx context.Context, userID int) ([]mode
 	var subs []model.Subscription
 	for rows.Next() {
 		var sub model.Subscription
-		err := rows.Scan(&sub.UUID, &sub.UserID, &sub.ChatID, &sub.LabNumber, &sub.LabAuditorium, &sub.Weekday, &sub.DayTime, &sub.Teacher)
+		err := rows.Scan(&sub.UUID, &sub.UserID, &sub.ChatID, &sub.LabNumber, &sub.LabAuditorium, &sub.Weekday, &sub.DayTime)
 		if err != nil {
 			return nil, &errs.ErrRowIteration{Operation: "FindByUserID", Query: query, Err: err}
 		}
@@ -105,7 +105,7 @@ func (s *subscriptionRepo) FindByUserID(ctx context.Context, userID int) ([]mode
 }
 
 func (s *subscriptionRepo) FindBySlotInfo(ctx context.Context, labNumber, labAuditorium int) ([]model.Subscription, error) {
-	query := `select uuid, user_id, chat_id, lab_number, lab_auditorium, weekday, day_time, teacher from subscriptions where lab_number = ? and lab_auditorium = ?`
+	query := `select uuid, user_id, chat_id, lab_number, lab_auditorium, weekday, day_time from subscriptions where lab_number = ? and lab_auditorium = ?`
 	rows, err := s.db.QueryContext(ctx, query, labNumber, labAuditorium)
 	if err != nil {
 		return nil, &errs.ErrQueryExecution{Operation: "FindBySlotInfo", Query: query, Err: err}

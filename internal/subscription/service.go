@@ -76,20 +76,23 @@ func (s *subscriptionService) FindSubscriptionsByUserID(ctx context.Context, use
 }
 
 func (s *subscriptionService) FindSubscriptionsBySlotInfo(ctx context.Context, slot model.Slot) ([]model.Subscription, error) {
-	res := make([]model.Subscription, 0)
-
 	subs, err := s.subRepo.FindBySlotInfo(ctx, slot.LabNumber, slot.LabAuditorium)
 	if err != nil {
 		slog.Error("Failed to find subscriptions", "slot", slot, "err", err)
 	}
 
+	res := make([]model.Subscription, 0)
 	for _, sub := range subs {
-		for _, time := range slot.Available {
-			day := time.Weekday()
-			dayTime := time.Format("15:04")
+		for _, available := range slot.Available {
+			day := available.Time.Weekday()
+			dayTime := available.Time.Format("15:04")
 
-			// TODO: implement check for teacher
-			if day == sub.Weekday && dayTime == sub.DayTime {
+			if sub.Weekday == nil {
+				res = append(res, sub)
+				continue
+			}
+
+			if day == *sub.Weekday && dayTime == sub.DayTime {
 				res = append(res, sub)
 			}
 		}
