@@ -26,7 +26,8 @@ func FetchServiceIDs(ctx context.Context, url string) ([]int, error) {
 		var pageOptions PageOptions
 		err := json.Unmarshal([]byte(dataOptions), &pageOptions)
 		if err != nil {
-			parsingErr = &ErrParseData{err: err, data: dataOptions}
+			newErr := &ErrParseData{err: err, data: dataOptions}
+			parsingErr = errors.Join(parsingErr, newErr)
 		}
 		categories := pageOptions.StepData.List
 		for _, category := range categories {

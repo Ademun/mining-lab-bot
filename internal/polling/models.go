@@ -21,12 +21,10 @@ type Category struct {
 }
 
 type LabService struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
+	ID int `json:"id"`
 }
 
 // ======================================================
-
 // Структура JSON ответа от сервиса
 // ======================================================
 
