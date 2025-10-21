@@ -8,19 +8,19 @@ import (
 // Структура HTML документа для извлечения айди сервисов
 // ======================================================
 
-type PageOptions struct {
-	StepData StepData `json:"step_data"`
+type pageOptions struct {
+	StepData stepData `json:"step_data"`
 }
 
-type StepData struct {
-	List []Category `json:"list"`
+type stepData struct {
+	List []category `json:"list"`
 }
 
-type Category struct {
-	Services []LabService `json:"services"`
+type category struct {
+	Services []labService `json:"services"`
 }
 
-type LabService struct {
+type labService struct {
 	ID int `json:"id"`
 }
 
@@ -28,22 +28,22 @@ type LabService struct {
 // Структура JSON ответа от сервиса
 // ======================================================
 
-type ServiceData struct {
-	Data Data `json:"data"`
+type serverData struct {
+	Data serviceData `json:"data"`
 }
 
-type Data struct {
-	Masters   Masters  `json:"masters"`
+type serviceData struct {
+	Masters   masters  `json:"masters"`
 	DatesTrue []string `json:"dates_true"`
-	Times     Times    `json:"times"`
+	Times     times    `json:"times"`
 }
 
-type Masters struct {
+type masters struct {
 	EmptySlice []interface{}
 	MasterMap  map[int]MasterData
 }
 
-func (m *Masters) UnmarshalJSON(b []byte) error {
+func (m *masters) UnmarshalJSON(b []byte) error {
 	var emptySlice []interface{}
 	if err := json.Unmarshal(b, &emptySlice); err == nil {
 		m.EmptySlice = emptySlice
@@ -64,12 +64,12 @@ type MasterData struct {
 	ServiceName string `json:"service_name"`
 }
 
-type Times struct {
+type times struct {
 	EmptySlice []interface{}
 	TimesMap   map[int][]string
 }
 
-func (t *Times) UnmarshalJSON(b []byte) error {
+func (t *times) UnmarshalJSON(b []byte) error {
 	var emptySlice []interface{}
 	if err := json.Unmarshal(b, &emptySlice); err == nil {
 		t.EmptySlice = emptySlice

@@ -23,7 +23,7 @@ func FetchServiceIDs(ctx context.Context, url string) ([]int, error) {
 		if !exists {
 			return
 		}
-		var pageOptions PageOptions
+		var pageOptions pageOptions
 		err := json.Unmarshal([]byte(dataOptions), &pageOptions)
 		if err != nil {
 			newErr := &ErrParseData{err: err, data: dataOptions}

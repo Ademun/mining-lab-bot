@@ -13,7 +13,7 @@ import (
 
 var labNameRegexp = regexp.MustCompile(`\p{L}+\s+\p{L}+\s+№\s*(\d+).*?\((\d+)\s*\p{L}+\.\)(?:.*?\))?\s*(\p{L}.+)$`)
 
-func (s *pollingService) ParseServiceData(ctx context.Context, data *ServiceData, serviceID int) ([]model.Slot, error) {
+func (s *pollingService) ParseServiceData(ctx context.Context, data *serverData, serviceID int) ([]model.Slot, error) {
 	masters := data.Data.Masters
 
 	if len(masters.MasterMap) == 0 {
