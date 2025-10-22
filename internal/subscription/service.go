@@ -94,7 +94,7 @@ func (s *subscriptionService) FindSubscriptionsBySlotInfo(ctx context.Context, s
 				break
 			}
 
-			if day == *sub.Weekday && dayTime == sub.DayTime {
+			if day == *sub.Weekday && dayTime == *sub.DayTime {
 				res = append(res, sub)
 				break
 			}
