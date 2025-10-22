@@ -283,7 +283,12 @@ func notifySuccessMessage(slot *model.Slot) string {
 	var sb strings.Builder
 	sb.WriteString("<b>🔥 Появилась запись!</b>")
 	sb.WriteString(repeatLineBreaks(3))
-	sb.WriteString(fmt.Sprintf("<b>📚 Лаба №%d. %s</b>", slot.LabNumber, slot.LabName))
+	var longName = slot.LabName
+	if slot.LabOrder != 0 {
+		// A lab order can only be the 1 or 2. So there is only one ending -ое
+		longName += fmt.Sprintf(" (%d-ое место)", slot.LabOrder)
+	}
+	sb.WriteString(fmt.Sprintf("<b>📚 Лаба №%d. %s</b>", slot.LabNumber, longName))
 	sb.WriteString(repeatLineBreaks(2))
 	sb.WriteString(fmt.Sprintf("<b>🚪 Аудитория №%d</b>", slot.LabAuditorium))
 	sb.WriteString(repeatLineBreaks(2))

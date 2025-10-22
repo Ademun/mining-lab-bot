@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -143,7 +144,8 @@ func (s *pollingService) poll(ctx context.Context) {
 				dataChan = nil
 				continue
 			}
-			slots, err := s.ParseServerData(ctx, &data, data.Data.Company.ID)
+			serviceID, _ := strconv.Atoi(data.Data.Company.ID)
+			slots, err := s.ParseServerData(ctx, &data, serviceID)
 			if err != nil {
 				slog.Warn("Parsing error", "error", err, "service", logger.ServicePolling)
 			}

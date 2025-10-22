@@ -11,7 +11,11 @@ import (
 	"github.com/Ademun/mining-lab-bot/pkg/model"
 )
 
-var labNameRegexp = regexp.MustCompile(`\p{L}+\s+\p{L}+\s+№\s*(\d+).*?\((\d+)\s*\p{L}+\.\)(?:.*?\))?\s*(\p{L}.+)$`)
+var (
+	numRe   = regexp.MustCompile(`№\s*(\d+)`)
+	audRe   = regexp.MustCompile(`\((\d+)\s*\p{L}+\.\)`)
+	orderRe = regexp.MustCompile(`\((\d+)-?\p{L}*\s*место\)`)
+)
 
 func (s *pollingService) ParseServerData(ctx context.Context, data *ServerData, serviceID int) ([]model.Slot, error) {
 	dataMasters := data.Data.Masters
@@ -25,28 +29,14 @@ func (s *pollingService) ParseServerData(ctx context.Context, data *ServerData, 
 
 	errs := make([]error, 0)
 	for id, master := range dataMasters.MasterMap {
-		labNumber, labAuditorium, labName, err := parseMasterName(master.Username)
+		slot, err := parseLabName(master.Username, master.ServiceName)
 		if err != nil {
-			labNumber, labAuditorium, labName, err = parseMasterName(master.ServiceName)
-			if err != nil {
-				errs = append(errs, err)
-				continue
-			}
-		}
-
-		var labType model.LabType
-		switch {
-		case strings.Contains(master.ServiceName, "Выполнение"):
-			labType = model.LabPerformance
-		case strings.Contains(master.ServiceName, "Защита"):
-			labType = model.LabDefence
-		default:
-			errs = append(errs, &ErrParseData{
-				data: master.ServiceName,
-				err:  errors.New("invalid lab type in service name"),
-			})
+			errs = append(errs, err)
 			continue
 		}
+
+		// TODO: Implement correct Defence detection when new slots are opened in November
+		var labType = model.LabPerformance
 
 		available := make([]model.TimeTeachers, 0)
 		for _, timeString := range dataTimes.TimesMap[id] {
@@ -58,24 +48,19 @@ func (s *pollingService) ParseServerData(ctx context.Context, data *ServerData, 
 				})
 				continue
 			}
-			teachers := s.teacherService.FindTeachersForTime(ctx, timestamp, labAuditorium)
+			teachers := s.teacherService.FindTeachersForTime(ctx, timestamp, slot.LabAuditorium)
 			available = append(available, model.TimeTeachers{
 				Time:     timestamp,
 				Teachers: teachers,
 			})
 		}
 
-		slot := model.Slot{
-			ID:            id,
-			LabNumber:     labNumber,
-			LabName:       labName,
-			LabAuditorium: labAuditorium,
-			LabType:       labType,
-			Available:     available,
-			URL:           buildURL(serviceID),
-		}
+		slot.ID = id
+		slot.LabType = labType
+		slot.Available = available
+		slot.URL = buildURL(serviceID)
 
-		slots = append(slots, slot)
+		slots = append(slots, *slot)
 	}
 
 	if len(errs) > 0 {
@@ -85,18 +70,71 @@ func (s *pollingService) ParseServerData(ctx context.Context, data *ServerData, 
 	return slots, nil
 }
 
-func parseMasterName(masterName string) (int, int, string, error) {
-	matches := labNameRegexp.FindStringSubmatch(masterName)
-	if len(matches) < 4 {
-		return 0, 0, "", &ErrParseData{
-			data: masterName,
-			err:  errors.New("invalid lab name format"),
-		}
+func parseLabName(username, serviceName string) (*model.Slot, error) {
+	labNumber, err := parseLabNumber(username, serviceName)
+	if err != nil {
+		return nil, err
 	}
-	labNumber, _ := strconv.Atoi(matches[1])
-	labAuditory, _ := strconv.Atoi(matches[2])
-	labName := matches[3]
-	return labNumber, labAuditory, labName, nil
+
+	labAuditorium, err := parseLabAuditorium(username, serviceName)
+	if err != nil {
+		return nil, err
+	}
+
+	labOrder, err := parseLabOrder(username, serviceName)
+	if err != nil {
+		labOrder = 0
+	}
+
+	labName := username
+	labName = numRe.ReplaceAllString(labName, "")
+	labName = audRe.ReplaceAllString(labName, "")
+	labName = orderRe.ReplaceAllString(labName, "")
+	labName = strings.TrimPrefix(labName, "Лабораторная работа")
+	labName = strings.TrimSpace(labName)
+
+	return &model.Slot{
+		LabName:       labName,
+		LabNumber:     labNumber,
+		LabAuditorium: labAuditorium,
+		LabOrder:      labOrder,
+	}, nil
+}
+
+func parseLabNumber(username string, serviceName string) (int, error) {
+	if match := numRe.FindStringSubmatch(username); match != nil {
+		labNum, _ := strconv.Atoi(match[1])
+		return labNum, nil
+	} else if match := numRe.FindStringSubmatch(serviceName); match != nil {
+		labNum, _ := strconv.Atoi(match[1])
+		return labNum, nil
+	} else {
+		return 0, &ErrParseData{data: username + " " + serviceName, msg: "lab number not found", err: errors.New("invalid lab name format")}
+	}
+}
+
+func parseLabAuditorium(username string, serviceName string) (int, error) {
+	if match := audRe.FindStringSubmatch(username); match != nil {
+		labAud, _ := strconv.Atoi(match[1])
+		return labAud, nil
+	} else if match := audRe.FindStringSubmatch(serviceName); match != nil {
+		labAud, _ := strconv.Atoi(match[1])
+		return labAud, nil
+	} else {
+		return 0, &ErrParseData{data: username + " " + serviceName, msg: "lab auditorium not found", err: errors.New("invalid lab name format")}
+	}
+}
+
+func parseLabOrder(username string, serviceName string) (int, error) {
+	if match := orderRe.FindStringSubmatch(username); match != nil {
+		labOrder, _ := strconv.Atoi(match[1])
+		return labOrder, nil
+	} else if match := orderRe.FindStringSubmatch(serviceName); match != nil {
+		labOrder, _ := strconv.Atoi(match[1])
+		return labOrder, nil
+	} else {
+		return 0, &ErrParseData{data: username + " " + serviceName, msg: "lab order not found", err: errors.New("invalid lab name format")}
+	}
 }
 
 func parseTimeString(timeString string) (time.Time, error) {

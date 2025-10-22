@@ -28,6 +28,7 @@ type Slot struct {
 	LabName       string
 	LabNumber     int
 	LabAuditorium int
+	LabOrder      int
 	LabType       LabType
 	Available     []TimeTeachers
 	URL           string

@@ -40,7 +40,7 @@ type ServiceData struct {
 }
 
 type Company struct {
-	ID int `json:"id"`
+	ID string `json:"id"`
 }
 
 type Masters struct {

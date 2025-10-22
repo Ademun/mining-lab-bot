@@ -2,6 +2,7 @@ package subscription
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"github.com/Ademun/mining-lab-bot/pkg/errs"
@@ -77,6 +78,7 @@ func (s *subscriptionService) FindSubscriptionsByUserID(ctx context.Context, use
 
 func (s *subscriptionService) FindSubscriptionsBySlotInfo(ctx context.Context, slot model.Slot) ([]model.Subscription, error) {
 	subs, err := s.subRepo.FindBySlotInfo(ctx, slot.LabNumber, slot.LabAuditorium)
+	fmt.Println("Subs", len(subs))
 	if err != nil {
 		slog.Error("Failed to find subscriptions", "slot", slot, "err", err)
 	}
@@ -89,11 +91,12 @@ func (s *subscriptionService) FindSubscriptionsBySlotInfo(ctx context.Context, s
 
 			if sub.Weekday == nil {
 				res = append(res, sub)
-				continue
+				break
 			}
 
 			if day == *sub.Weekday && dayTime == sub.DayTime {
 				res = append(res, sub)
+				break
 			}
 		}
 	}
