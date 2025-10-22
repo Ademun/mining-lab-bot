@@ -2,6 +2,7 @@ package subscription
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/Ademun/mining-lab-bot/pkg/logger"
 	"github.com/Ademun/mining-lab-bot/pkg/metrics"
 	"github.com/Ademun/mining-lab-bot/pkg/model"
+	"github.com/mattn/go-sqlite3"
 )
 
 type Service interface {
@@ -41,27 +43,26 @@ func (s *subscriptionService) Start(ctx context.Context) error {
 }
 
 func (s *subscriptionService) Subscribe(ctx context.Context, sub model.Subscription) error {
-	exists, err := s.subRepo.Exists(ctx, sub.UserID, sub.LabNumber, sub.LabAuditorium)
+	err := s.subRepo.Create(ctx, sub)
 	if err != nil {
-		slog.Error("Failed to check if subscription exists", "sub", sub, "err", err)
+		if errors.Is(err, sqlite3.ErrConstraintUnique) {
+			return errs.ErrSubscriptionExists
+		}
+		slog.Error("Failed to create subscription", "sub", sub, "err", err)
 		return err
 	}
-
-	if exists {
-		return errs.ErrSubscriptionExists
-	}
-
 	metrics.Global().RecordSubscriptionResults(1)
-
-	return s.subRepo.Create(ctx, sub)
+	return nil
 }
 
 func (s *subscriptionService) Unsubscribe(ctx context.Context, subUUID string) error {
-	metrics.Global().RecordSubscriptionResults(-1)
-
-	err := s.subRepo.Delete(ctx, subUUID)
+	success, err := s.subRepo.Delete(ctx, subUUID)
 	if err != nil {
 		slog.Error("Failed to delete subscription", "subUUID", subUUID, "err", err)
+	}
+
+	if success {
+		metrics.Global().RecordSubscriptionResults(-1)
 	}
 
 	return err
@@ -78,26 +79,26 @@ func (s *subscriptionService) FindSubscriptionsByUserID(ctx context.Context, use
 
 func (s *subscriptionService) FindSubscriptionsBySlotInfo(ctx context.Context, slot model.Slot) ([]model.Subscription, error) {
 	subs, err := s.subRepo.FindBySlotInfo(ctx, slot.LabNumber, slot.LabAuditorium)
-	fmt.Println("Subs", len(subs))
 	if err != nil {
 		slog.Error("Failed to find subscriptions", "slot", slot, "err", err)
 	}
 
 	res := make([]model.Subscription, 0)
+	availableMap := make(map[string]bool)
+	for _, available := range slot.Available {
+		key := fmt.Sprintf("%d-%s", available.Time.Weekday(), available.Time.Format("15:04"))
+		availableMap[key] = true
+	}
+
 	for _, sub := range subs {
-		for _, available := range slot.Available {
-			day := available.Time.Weekday()
-			dayTime := available.Time.Format("15:04")
+		if sub.Weekday == nil || sub.DayTime == nil {
+			res = append(res, sub)
+			continue
+		}
 
-			if sub.Weekday == nil {
-				res = append(res, sub)
-				break
-			}
-
-			if day == *sub.Weekday && dayTime == *sub.DayTime {
-				res = append(res, sub)
-				break
-			}
+		key := fmt.Sprintf("%d-%s", *sub.Weekday, *sub.DayTime)
+		if availableMap[key] {
+			res = append(res, sub)
 		}
 	}
 

@@ -10,8 +10,7 @@ import (
 
 type Repo interface {
 	Create(ctx context.Context, sub model.Subscription) error
-	Delete(ctx context.Context, UUID string) error
-	Exists(ctx context.Context, userID, labNumber, labAuditorium int) (bool, error)
+	Delete(ctx context.Context, UUID string) (bool, error)
 	FindByUserID(ctx context.Context, userID int) ([]model.Subscription, error)
 	FindBySlotInfo(ctx context.Context, labNumber, labAuditorium int) ([]model.Subscription, error)
 	Count(ctx context.Context) (int, error)
@@ -34,23 +33,20 @@ func (s *subscriptionRepo) Create(ctx context.Context, sub model.Subscription) e
 	return nil
 }
 
-func (s *subscriptionRepo) Delete(ctx context.Context, uuid string) error {
+func (s *subscriptionRepo) Delete(ctx context.Context, uuid string) (bool, error) {
 	query := `delete from subscriptions where uuid = ?`
-	_, err := s.db.ExecContext(ctx, query, uuid)
+	res, err := s.db.ExecContext(ctx, query, uuid)
 	if err != nil {
-		return &errs.ErrQueryExecution{Operation: "Delete", Query: query, Err: err}
+		return false, &errs.ErrQueryExecution{Operation: "Delete", Query: query, Err: err}
 	}
-	return nil
-}
-
-func (s *subscriptionRepo) Exists(ctx context.Context, userID, labNumber, labAuditorium int) (bool, error) {
-	query := `select exists (select 1 from subscriptions where user_id = ? and lab_number = ? and lab_auditorium = ?)`
-	var exists bool
-	err := s.db.QueryRowContext(ctx, query, userID, labNumber, labAuditorium).Scan(&exists)
+	affected, err := res.RowsAffected()
 	if err != nil {
-		return false, &errs.ErrQueryExecution{Operation: "Exists", Query: query, Err: err}
+		return false, &errs.ErrQueryExecution{Operation: "Delete", Query: query, Err: err}
 	}
-	return exists, nil
+	if affected == 0 {
+		return false, nil
+	}
+	return true, nil
 }
 
 func (s *subscriptionRepo) FindByUserID(ctx context.Context, userID int) ([]model.Subscription, error) {
