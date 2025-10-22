@@ -2,8 +2,8 @@ package polling
 
 import (
 	"context"
-	"errors"
 	"log/slog"
+	"net/http"
 	"sync"
 	"time"
 
@@ -11,11 +11,11 @@ import (
 	"github.com/Ademun/mining-lab-bot/internal/teacher"
 	"github.com/Ademun/mining-lab-bot/pkg/config"
 	"github.com/Ademun/mining-lab-bot/pkg/logger"
-	"github.com/Ademun/mining-lab-bot/pkg/metrics"
 )
 
 type Service interface {
 	Start(ctx context.Context) error
+	Stop(ctx context.Context) error
 	GetPollingMode() config.PollingMode
 	SetPollingMode(mode config.PollingMode)
 }
@@ -25,7 +25,9 @@ type pollingService struct {
 	teacherService teacher.Service
 	options        config.PollingConfig
 	serviceIDs     []int
-	mutex          *sync.RWMutex
+	httpClient     *http.Client
+	wg             sync.WaitGroup
+	mu             sync.RWMutex
 }
 
 func New(notifService notification.Service, teacherService teacher.Service, opts *config.PollingConfig) Service {
@@ -34,7 +36,11 @@ func New(notifService notification.Service, teacherService teacher.Service, opts
 		teacherService: teacherService,
 		options:        *opts,
 		serviceIDs:     make([]int, 0),
-		mutex:          &sync.RWMutex{},
+		httpClient: &http.Client{
+			Timeout: time.Second * 30,
+		},
+		wg: sync.WaitGroup{},
+		mu: sync.RWMutex{},
 	}
 }
 
@@ -48,11 +54,31 @@ func (s *pollingService) Start(ctx context.Context) error {
 	return nil
 }
 
+func (s *pollingService) Stop(ctx context.Context) error {
+	done := make(chan struct{})
+	go func() {
+		s.wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		slog.Info("Stopped", "service", logger.ServicePolling)
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
 func (s *pollingService) GetPollingMode() config.PollingMode {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	return s.options.Mode
 }
 
 func (s *pollingService) SetPollingMode(mode config.PollingMode) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.options.Mode = mode
 }
 
@@ -60,72 +86,91 @@ func (s *pollingService) startPollingLoop(ctx context.Context) {
 	s.poll(ctx)
 
 	go func() {
+		pollRate := s.getPolRate()
+		ticker := time.NewTicker(pollRate)
+		defer ticker.Stop()
 		for {
-			var pollRate time.Duration
-			switch s.options.Mode {
-			case config.ModeNormal:
-				pollRate = time.Minute * 1
-			case config.ModeAggressive:
-				pollRate = time.Second * 25
-			}
-			ticker := time.Tick(pollRate)
 			select {
 			case <-ctx.Done():
 				return
-			case <-ticker:
+			case <-ticker.C:
 				s.poll(ctx)
+				newRate := s.getPolRate()
+				ticker.Reset(newRate)
 			}
 		}
 	}()
 }
 
-func (s *pollingService) poll(ctx context.Context) {
-	var fetchRate time.Duration
+func (s *pollingService) getPolRate() time.Duration {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	switch s.options.Mode {
 	case config.ModeNormal:
-		fetchRate = time.Second * 2
+		return s.options.NormalPollRate
 	case config.ModeAggressive:
-		fetchRate = time.Millisecond * 500
+		return s.options.AggressivePollRate
 	}
+	slog.Warn("Unknown service mode", "mode", s.options.Mode, "service", logger.ServicePolling)
+	return s.options.NormalPollRate
+}
 
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	start := time.Now()
-	slots, errs := s.PollAvailableSlots(ctx, s.serviceIDs, fetchRate)
-	total := time.Since(start)
-
-	parseErrs, fetchErrs := 0, 0
-	var parseErr *ErrParseData
-	var fetchErr *ErrFetch
-	for _, err := range errs {
-		if errors.Is(err, parseErr) {
-			parseErrs++
-			slog.Warn("Parsing error", "error", err, "service", logger.ServicePolling)
-		}
-		if errors.Is(err, fetchErr) {
-			fetchErrs++
-			slog.Warn("Fetching error", "error", err, "service", logger.ServicePolling)
-		}
+func (s *pollingService) getFetchRate() time.Duration {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	switch s.options.Mode {
+	case config.ModeNormal:
+		return s.options.NormalFetchRate
+	case config.ModeAggressive:
+		return s.options.AggressiveFetchRate
 	}
+	slog.Warn("Unknown service mode", "mode", s.options.Mode, "service", logger.ServicePolling)
+	return s.options.NormalFetchRate
+}
 
-	metrics.Global().RecordPollResults(len(slots), parseErrs, fetchErrs, s.GetPollingMode(), total)
+func (s *pollingService) poll(ctx context.Context) {
+	s.wg.Add(1)
+	defer s.wg.Done()
 
-	for _, slot := range slots {
-		s.notifService.SendNotification(ctx, slot)
+	dataChan, errChan := s.pollServerData(ctx)
+
+	for dataChan != nil || errChan != nil {
+		select {
+		case <-ctx.Done():
+			return
+		case data, ok := <-dataChan:
+			if !ok {
+				dataChan = nil
+				continue
+			}
+			slots, err := s.ParseServerData(ctx, &data, data.Data.Company.ID)
+			if err != nil {
+				slog.Warn("Parsing error", "error", err, "service", logger.ServicePolling)
+			}
+			for _, slot := range slots {
+				s.notifService.SendNotification(ctx, slot)
+			}
+		case err, ok := <-errChan:
+			if !ok {
+				errChan = nil
+				continue
+			}
+			slog.Warn("Polling error", "error", err, "service", logger.ServicePolling)
+		}
 	}
 }
 
 func (s *pollingService) startIDUpdateLoop(ctx context.Context) {
 	s.updateIDs(ctx)
 
-	ticker := time.Tick(time.Hour * 24)
 	go func() {
+		ticker := time.NewTicker(s.options.ServiceIDUpdateRate)
+		defer ticker.Stop()
 		for {
 			select {
 			case <-ctx.Done():
 				return
-			case <-ticker:
+			case <-ticker.C:
 				s.updateIDs(ctx)
 			}
 		}
@@ -133,12 +178,16 @@ func (s *pollingService) startIDUpdateLoop(ctx context.Context) {
 }
 
 func (s *pollingService) updateIDs(ctx context.Context) {
-	ids, err := FetchServiceIDs(ctx, s.options.ServiceURL)
+	s.wg.Add(1)
+	defer s.wg.Done()
+
+	ids, err := s.fetchServiceIDs(ctx)
 	if err != nil {
 		slog.Error("Failed to fetch service IDs", "error", err, "service", logger.ServicePolling)
+		return
 	}
 
-	s.mutex.Lock()
+	s.mu.Lock()
 	s.serviceIDs = ids
-	s.mutex.Unlock()
+	s.mu.Unlock()
 }

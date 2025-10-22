@@ -8,19 +8,19 @@ import (
 // Структура HTML документа для извлечения айди сервисов
 // ======================================================
 
-type pageOptions struct {
-	StepData stepData `json:"step_data"`
+type PageOptions struct {
+	StepData StepData `json:"step_data"`
 }
 
-type stepData struct {
-	List []category `json:"list"`
+type StepData struct {
+	List []Category `json:"list"`
 }
 
-type category struct {
-	Services []labService `json:"services"`
+type Category struct {
+	Services []LabService `json:"services"`
 }
 
-type labService struct {
+type LabService struct {
 	ID int `json:"id"`
 }
 
@@ -28,22 +28,28 @@ type labService struct {
 // Структура JSON ответа от сервиса
 // ======================================================
 
-type serverData struct {
-	Data serviceData `json:"data"`
+type ServerData struct {
+	Data ServiceData `json:"data"`
 }
 
-type serviceData struct {
-	Masters   masters  `json:"masters"`
+type ServiceData struct {
+	Company   Company  `json:"company"`
+	Masters   Masters  `json:"masters"`
 	DatesTrue []string `json:"dates_true"`
-	Times     times    `json:"times"`
+	Times     Times    `json:"times"`
 }
 
-type masters struct {
+type Company struct {
+	ID int `json:"id"`
+}
+
+type Masters struct {
+	// For some reason if the Masters field is empty, it is returned as an empty json array, but if it contains data, it is returned as a map
 	EmptySlice []interface{}
 	MasterMap  map[int]MasterData
 }
 
-func (m *masters) UnmarshalJSON(b []byte) error {
+func (m *Masters) UnmarshalJSON(b []byte) error {
 	var emptySlice []interface{}
 	if err := json.Unmarshal(b, &emptySlice); err == nil {
 		m.EmptySlice = emptySlice
@@ -64,12 +70,13 @@ type MasterData struct {
 	ServiceName string `json:"service_name"`
 }
 
-type times struct {
+type Times struct {
+	// For some reason if the Times field is empty, it is returned as an empty json array, but if it contains data, it is returned as a map
 	EmptySlice []interface{}
 	TimesMap   map[int][]string
 }
 
-func (t *times) UnmarshalJSON(b []byte) error {
+func (t *Times) UnmarshalJSON(b []byte) error {
 	var emptySlice []interface{}
 	if err := json.Unmarshal(b, &emptySlice); err == nil {
 		t.EmptySlice = emptySlice

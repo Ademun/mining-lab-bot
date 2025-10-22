@@ -13,19 +13,18 @@ import (
 
 var labNameRegexp = regexp.MustCompile(`\p{L}+\s+\p{L}+\s+№\s*(\d+).*?\((\d+)\s*\p{L}+\.\)(?:.*?\))?\s*(\p{L}.+)$`)
 
-func (s *pollingService) ParseServiceData(ctx context.Context, data *serverData, serviceID int) ([]model.Slot, error) {
-	masters := data.Data.Masters
-
-	if len(masters.MasterMap) == 0 {
+func (s *pollingService) ParseServerData(ctx context.Context, data *ServerData, serviceID int) ([]model.Slot, error) {
+	dataMasters := data.Data.Masters
+	if len(dataMasters.MasterMap) == 0 {
 		return nil, nil
 	}
 
-	times := data.Data.Times
+	dataTimes := data.Data.Times
 
-	slots := make([]model.Slot, 0, len(masters.MasterMap))
+	slots := make([]model.Slot, 0, len(dataMasters.MasterMap))
 
 	errs := make([]error, 0)
-	for id, master := range masters.MasterMap {
+	for id, master := range dataMasters.MasterMap {
 		labNumber, labAuditorium, labName, err := parseMasterName(master.Username)
 		if err != nil {
 			labNumber, labAuditorium, labName, err = parseMasterName(master.ServiceName)
@@ -50,7 +49,7 @@ func (s *pollingService) ParseServiceData(ctx context.Context, data *serverData,
 		}
 
 		available := make([]model.TimeTeachers, 0)
-		for _, timeString := range times.TimesMap[id] {
+		for _, timeString := range dataTimes.TimesMap[id] {
 			timestamp, err := parseTimeString(timeString)
 			if err != nil {
 				errs = append(errs, &ErrParseData{

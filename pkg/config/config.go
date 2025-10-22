@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/joho/godotenv"
 	"gopkg.in/yaml.v3"
@@ -15,8 +16,13 @@ type Config struct {
 }
 
 type PollingConfig struct {
-	ServiceURL string      `yaml:"service_url"`
-	Mode       PollingMode `yaml:"mode"`
+	ServiceURL          string        `yaml:"service_url"`
+	Mode                PollingMode   `yaml:"mode"`
+	ServiceIDUpdateRate time.Duration `yaml:"service_id_update_rate"`
+	NormalPollRate      time.Duration `yaml:"normal_poll_rate"`
+	AggressivePollRate  time.Duration `yaml:"aggressive_poll_rate"`
+	NormalFetchRate     time.Duration `yaml:"normal_fetch_rate"`
+	AggressiveFetchRate time.Duration `yaml:"aggressive_fetch_rate"`
 }
 
 type PollingMode string

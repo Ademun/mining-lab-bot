@@ -10,8 +10,8 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
-func FetchServiceIDs(ctx context.Context, url string) ([]int, error) {
-	doc, err := fetchDocument(ctx, url)
+func (s *pollingService) fetchServiceIDs(ctx context.Context) ([]int, error) {
+	doc, err := s.fetchDocument(ctx, s.options.ServiceURL)
 	if err != nil {
 		return nil, err
 	}
@@ -23,7 +23,7 @@ func FetchServiceIDs(ctx context.Context, url string) ([]int, error) {
 		if !exists {
 			return
 		}
-		var pageOptions pageOptions
+		var pageOptions PageOptions
 		err := json.Unmarshal([]byte(dataOptions), &pageOptions)
 		if err != nil {
 			newErr := &ErrParseData{err: err, data: dataOptions}
@@ -38,34 +38,32 @@ func FetchServiceIDs(ctx context.Context, url string) ([]int, error) {
 	})
 
 	if parsingErr != nil {
-		return nil, err
+		return nil, parsingErr
 	}
 
 	return serviceIDs, nil
 }
 
-func fetchDocument(ctx context.Context, url string) (*goquery.Document, error) {
+func (s *pollingService) fetchDocument(ctx context.Context, url string) (*goquery.Document, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, &ErrFetch{err: err, msg: "Failed to create request"}
+		return nil, &ErrFetch{url: url, err: err, msg: "Failed to create request"}
 	}
 
-	client := &http.Client{}
-
-	res, err := client.Do(req)
+	res, err := s.httpClient.Do(req)
 	if err != nil {
-		return nil, &ErrFetch{err: err, msg: "Failed to fetch document"}
+		return nil, &ErrFetch{url: url, err: err, msg: "Failed to fetch document"}
 	}
 
 	defer res.Body.Close()
 
 	if res.StatusCode != 200 {
-		return nil, &ErrFetch{err: errors.New("bad status code"), msg: fmt.Sprintf("Expected 200 but got %d", res.StatusCode)}
+		return nil, &ErrFetch{url: url, err: errors.New("bad status code"), msg: fmt.Sprintf("Expected 200 but got %d", res.StatusCode)}
 	}
 
 	doc, err := goquery.NewDocumentFromReader(res.Body)
 	if err != nil {
-		return nil, &ErrFetch{err: err, msg: "Failed to parse document"}
+		return nil, &ErrFetch{url: url, err: err, msg: "Failed to parse document"}
 	}
 
 	return doc, nil

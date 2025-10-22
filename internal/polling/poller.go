@@ -8,25 +8,19 @@ import (
 	"io"
 	"net/http"
 	"sync"
-	"time"
 
-	"github.com/Ademun/mining-lab-bot/pkg/config"
 	"golang.org/x/time/rate"
 )
 
-func (s *pollingService) pollSlots(ctx context.Context) (chan serverData, chan error) {
-	results := make(chan serverData)
+func (s *pollingService) pollServerData(ctx context.Context) (chan ServerData, chan error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
-	var fetchRate time.Duration
-	switch s.options.Mode {
-	case config.ModeNormal:
-		fetchRate = time.Second * 1
-	case config.ModeAggressive:
-		fetchRate = time.Millisecond * 250
-	}
+	results := make(chan ServerData)
 
+	fetchRate := s.getFetchRate()
 	limiter := rate.NewLimiter(rate.Every(fetchRate), 1)
-	errChan := make(chan error, len(s.serviceIDs))
+	errChan := make(chan error)
 	var wg sync.WaitGroup
 
 	go func() {
@@ -34,18 +28,15 @@ func (s *pollingService) pollSlots(ctx context.Context) (chan serverData, chan e
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				select {
-				case <-ctx.Done():
+				if err := limiter.Wait(ctx); err != nil {
 					return
-				default:
-					limiter.Wait(ctx)
-					data, err := fetchServerData(ctx, serviceID)
-					if err != nil {
-						errChan <- err
-						return
-					}
-					results <- *data
 				}
+				data, err := s.fetchServerData(ctx, serviceID)
+				if err != nil {
+					errChan <- err
+					return
+				}
+				results <- *data
 			}()
 		}
 		wg.Wait()
@@ -56,33 +47,31 @@ func (s *pollingService) pollSlots(ctx context.Context) (chan serverData, chan e
 	return results, errChan
 }
 
-func fetchServerData(ctx context.Context, serviceID int) (*serverData, error) {
+func (s *pollingService) fetchServerData(ctx context.Context, serviceID int) (*ServerData, error) {
 	url := fmt.Sprintf("https://dikidi.net/ru/mobile/ajax/newrecord/get_datetimes/?company_id=550001&service_id%%5B%%5D=%d&with_first=1&day_month=", serviceID)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, &ErrFetch{err: err, msg: "Failed to create request"}
+		return nil, &ErrFetch{url: url, err: err, msg: "Failed to create request"}
 	}
 
-	client := &http.Client{}
-
-	res, err := client.Do(req)
+	res, err := s.httpClient.Do(req)
 	if err != nil {
-		return nil, &ErrFetch{err: err, msg: "Failed to fetch document"}
+		return nil, &ErrFetch{url: url, err: err, msg: "Failed to fetch document"}
 	}
 
 	defer res.Body.Close()
 
 	if res.StatusCode != 200 {
-		return nil, &ErrFetch{err: errors.New("bad status code"), msg: fmt.Sprintf("Expected 200 but got %d", res.StatusCode)}
+		return nil, &ErrFetch{url: url, err: errors.New("bad status code"), msg: fmt.Sprintf("Expected 200 but got %d", res.StatusCode)}
 	}
 
-	return unmarshalServiceData(res.Body)
+	return unmarshalServiceData(res.Body, serviceID)
 }
 
-func unmarshalServiceData(resData io.ReadCloser) (*serverData, error) {
-	var data serverData
-	if err := json.NewDecoder(resData).Decode(&data); err != nil {
-		return nil, &ErrParseData{err: err}
+func unmarshalServiceData(serverData io.ReadCloser, serviceID int) (*ServerData, error) {
+	var data ServerData
+	if err := json.NewDecoder(serverData).Decode(&data); err != nil {
+		return nil, &ErrParseData{msg: fmt.Sprintf("serviceID: %d", serviceID), err: err}
 	}
 	return &data, nil
 }
