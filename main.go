@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -16,6 +15,7 @@ import (
 	"github.com/Ademun/mining-lab-bot/internal/teacher"
 	"github.com/Ademun/mining-lab-bot/pkg/config"
 	"github.com/Ademun/mining-lab-bot/pkg/logger"
+	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -31,17 +31,13 @@ func main() {
 		return
 	}
 
-	db, err := sql.Open("sqlite3", "./dev.db")
+	db, err := sqlx.Open("sqlite3", "./dev.db")
 	if err != nil {
 		slog.Error("Fatal error", "error", err)
 		return
 	}
 
-	subscriptionRepo, err := subscription.NewRepo(ctx, db)
-	if err != nil {
-		slog.Error("Fatal error", "error", err)
-		return
-	}
+	subscriptionRepo := subscription.NewRepo(db)
 
 	subscriptionService := subscription.New(subscriptionRepo)
 	if err := subscriptionService.Start(ctx); err != nil {

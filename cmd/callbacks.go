@@ -131,7 +131,7 @@ func (b *telegramBot) callbackConfirmSubHandler(ctx context.Context, api *bot.Bo
 		LabNumber:     state.Data.LabNumber,
 		LabAuditorium: state.Data.LabAuditorium,
 		Weekday:       state.Data.Weekday,
-		DayTime:       state.Data.Daytime,
+		DayTime:       &state.Data.Daytime,
 	}
 
 	if state.Data.Daytime != "" {

@@ -48,13 +48,13 @@ func (s Slot) Key() string {
 }
 
 type Subscription struct {
-	UUID          string
-	UserID        int
-	ChatID        int
-	LabNumber     int
-	LabAuditorium int
-	Weekday       *time.Weekday
-	DayTime       string
+	UUID          string        `db:"uuid"`
+	UserID        int           `db:"user_id"`
+	ChatID        int           `db:"chat_id"`
+	LabNumber     int           `db:"lab_number"`
+	LabAuditorium int           `db:"lab_auditorium"`
+	Weekday       *time.Weekday `db:"weekday"`
+	DayTime       *string       `db:"day_time"`
 }
 
 type Notification struct {
