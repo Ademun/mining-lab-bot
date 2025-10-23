@@ -39,22 +39,18 @@ type ServiceData struct {
 	Times     Times    `json:"times"`
 }
 
-type Masters struct {
-	// For some reason if the Masters field is empty, it is returned as an empty json array, but if it contains data, it is returned as a map
-	EmptySlice []interface{}
-	MasterMap  map[int]MasterData
-}
+type Masters map[int]MasterData
 
 func (m *Masters) UnmarshalJSON(b []byte) error {
 	var emptySlice []interface{}
 	if err := json.Unmarshal(b, &emptySlice); err == nil {
-		m.EmptySlice = emptySlice
+		*m = make(map[int]MasterData)
 		return nil
 	}
 
 	var masterMap map[int]MasterData
 	if err := json.Unmarshal(b, &masterMap); err == nil {
-		m.MasterMap = masterMap
+		*m = masterMap
 		return nil
 	}
 
@@ -66,21 +62,17 @@ type MasterData struct {
 	ServiceName string `json:"service_name"`
 }
 
-type Times struct {
-	// For some reason if the Times field is empty, it is returned as an empty json array, but if it contains data, it is returned as a map
-	EmptySlice []interface{}
-	TimesMap   map[int][]string
-}
+type Times map[int][]string
 
 func (t *Times) UnmarshalJSON(b []byte) error {
 	var emptySlice []interface{}
 	if err := json.Unmarshal(b, &emptySlice); err == nil {
-		t.EmptySlice = emptySlice
+		*t = make(map[int][]string)
 		return nil
 	}
 	var timesMap map[int][]string
 	if err := json.Unmarshal(b, &timesMap); err == nil {
-		t.TimesMap = timesMap
+		*t = timesMap
 		return nil
 	}
 	return fmt.Errorf("unknown times format")

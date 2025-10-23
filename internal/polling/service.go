@@ -2,6 +2,7 @@ package polling
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"sync"
@@ -134,6 +135,7 @@ func (s *pollingService) poll(ctx context.Context) {
 
 	dataChan, errChan := s.pollServerData(ctx)
 
+	start := time.Now()
 	for dataChan != nil || errChan != nil {
 		select {
 		case <-ctx.Done():
@@ -159,6 +161,7 @@ func (s *pollingService) poll(ctx context.Context) {
 			slog.Warn("Polling error", "error", err, "service", logger.ServicePolling)
 		}
 	}
+	fmt.Println("Total", time.Since(start))
 }
 
 func (s *pollingService) startIDUpdateLoop(ctx context.Context) {

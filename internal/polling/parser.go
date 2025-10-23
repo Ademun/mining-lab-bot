@@ -19,16 +19,16 @@ var (
 
 func (s *pollingService) ParseServerData(ctx context.Context, data *ServerData, serviceID int) ([]model.Slot, error) {
 	dataMasters := data.Data.Masters
-	if len(dataMasters.MasterMap) == 0 {
+	if len(dataMasters) == 0 {
 		return nil, nil
 	}
 
 	dataTimes := data.Data.Times
 
-	slots := make([]model.Slot, 0, len(dataMasters.MasterMap))
+	slots := make([]model.Slot, 0, len(dataMasters))
 
 	errs := make([]error, 0)
-	for id, master := range dataMasters.MasterMap {
+	for id, master := range dataMasters {
 		slot, err := parseLabName(master.Username, master.ServiceName)
 		if err != nil {
 			errs = append(errs, err)
@@ -39,7 +39,7 @@ func (s *pollingService) ParseServerData(ctx context.Context, data *ServerData, 
 		labType := model.LabPerformance
 
 		available := make([]model.TimeTeachers, 0)
-		for _, timeString := range dataTimes.TimesMap[id] {
+		for _, timeString := range dataTimes[id] {
 			timestamp, err := parseTimeString(timeString)
 			if err != nil {
 				errs = append(errs, &ErrParseData{
