@@ -32,6 +32,7 @@ func (s *pollingService) pollServerData(ctx context.Context) (chan ServerData, c
 					return
 				}
 				data, err := s.fetchServerData(ctx, serviceID)
+				data.Data.ServiceID = serviceID
 				if err != nil {
 					errChan <- err
 					return

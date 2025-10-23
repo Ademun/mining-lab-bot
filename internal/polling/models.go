@@ -33,14 +33,10 @@ type ServerData struct {
 }
 
 type ServiceData struct {
-	Company   Company  `json:"company"`
+	ServiceID int
 	Masters   Masters  `json:"masters"`
 	DatesTrue []string `json:"dates_true"`
 	Times     Times    `json:"times"`
-}
-
-type Company struct {
-	ID string `json:"id"`
 }
 
 type Masters struct {
