@@ -26,8 +26,6 @@ func (b *telegramBot) messageHandler(ctx context.Context, api *bot.Bot, update *
 		b.awaitingLabNumberHandler(ctx, api, chatID, userID, text, state)
 	case stepAwaitingLabAuditorium:
 		b.awaitingLabAuditoriumHandler(ctx, api, chatID, userID, text, state)
-	case stepAwaitingDaytime:
-		b.handleAwaitingDaytime(ctx, api, chatID, userID, text, state)
 	default:
 		b.defaultHandler(ctx, api, update)
 	}
@@ -200,28 +198,5 @@ func (b *telegramBot) awaitingLabAuditoriumHandler(ctx context.Context, api *bot
 		Text:        subAskWeekdayMessage(),
 		ParseMode:   models.ParseModeHTML,
 		ReplyMarkup: createWeekdayKeyboard(),
-	})
-}
-
-func (b *telegramBot) handleAwaitingDaytime(ctx context.Context, api *bot.Bot, chatID, userID int64, text string, state *userState) {
-	_, err := parseTime(text)
-	if err != nil {
-		api.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID:    chatID,
-			Text:      subTimeValidationErrorMessage(),
-			ParseMode: models.ParseModeHTML,
-		})
-		return
-	}
-
-	state.Data.Daytime = text
-	state.Step = stepConfirming
-	b.stateManager.set(userID, state)
-
-	api.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID:      chatID,
-		Text:        subAskTeacherMessage(),
-		ParseMode:   models.ParseModeHTML,
-		ReplyMarkup: createSkipKeyboard("teacher"),
 	})
 }

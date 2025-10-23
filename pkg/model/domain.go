@@ -65,11 +65,11 @@ type Notification struct {
 }
 
 type Teacher struct {
-	ID         int
-	Name       string
-	Auditorium int
-	WeekNumber int
-	Weekday    time.Weekday
-	TimeStart  string
-	TimeEnd    string
+	ID         int          `db:"id"`
+	Name       string       `db:"name"`
+	Auditorium int          `db:"auditorium"`
+	WeekNumber int          `db:"week_number"`
+	Weekday    time.Weekday `db:"weekday"`
+	TimeStart  string       `db:"time_start"`
+	TimeEnd    string       `db:"time_end"`
 }

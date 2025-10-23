@@ -18,6 +18,8 @@ func (b *telegramBot) callbackRouter(ctx context.Context, api *bot.Bot, update *
 	switch {
 	case strings.HasPrefix(callbackData, "weekday:"):
 		b.callbackWeekdayHandler(ctx, api, update)
+	case strings.HasPrefix(callbackData, "lesson:"):
+		b.callbackLessonHandler(ctx, api, update)
 	case strings.HasPrefix(callbackData, "skip:"):
 		b.callbackSkipHandler(ctx, api, update)
 	case strings.HasPrefix(callbackData, "confirm:"):
@@ -53,9 +55,50 @@ func (b *telegramBot) callbackWeekdayHandler(ctx context.Context, api *bot.Bot, 
 	})
 
 	api.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID:    chatID,
-		Text:      subAskTimeMessage(),
-		ParseMode: models.ParseModeHTML,
+		ChatID:      chatID,
+		Text:        subAskLessonMessage(),
+		ReplyMarkup: createLessonKeyboard(),
+		ParseMode:   models.ParseModeHTML,
+	})
+}
+
+var lessonTimeMap = map[int]string{
+	1: "8:50",
+	2: "10:35",
+	3: "12:35",
+	4: "14:15",
+	5: "15:55",
+	6: "17:30",
+	7: "19:10",
+	8: "20:40",
+}
+
+func (b *telegramBot) callbackLessonHandler(ctx context.Context, api *bot.Bot, update *models.Update) {
+	userID := update.CallbackQuery.From.ID
+	chatID := update.CallbackQuery.Message.Message.Chat.ID
+
+	state, exists := b.stateManager.get(userID)
+	if !exists || state.Step != stepAwaitingDaytime {
+		api.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
+			CallbackQueryID: update.CallbackQuery.ID,
+			Text:            "Состояние устарело",
+		})
+		return
+	}
+
+	lessonString := strings.TrimPrefix(update.CallbackQuery.Data, "lesson:")
+	lesson, _ := strconv.Atoi(lessonString)
+	lessonTime := lessonTimeMap[lesson]
+
+	state.Data.Daytime = lessonTime
+	state.Step = stepConfirming
+
+	b.stateManager.set(userID, state)
+	api.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID:      chatID,
+		Text:        subConfirmationMessage(&state.Data),
+		ParseMode:   models.ParseModeHTML,
+		ReplyMarkup: createConfirmationKeyboard(),
 	})
 }
 

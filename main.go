@@ -55,12 +55,8 @@ func main() {
 	bot.SetNotificationService(notificationService)
 	bot.Start(ctx)
 
-	teacherRepo, err := teacher.NewRepo(ctx, db)
-	if err != nil {
-		slog.Error("Fatal error", "error", err)
-		return
-	}
-	teacherService := teacher.New(teacherRepo)
+	teacherRepo := teacher.NewRepo(db)
+	teacherService := teacher.New(teacherRepo, &cfg.TeacherConfig)
 
 	pollingService := polling.New(notificationService, teacherService, &cfg.PollingConfig)
 	if err := pollingService.Start(ctx); err != nil {

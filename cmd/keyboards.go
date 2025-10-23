@@ -28,12 +28,17 @@ func createWeekdayKeyboard() *models.InlineKeyboardMarkup {
 	}
 }
 
-func createSkipKeyboard(field string) *models.InlineKeyboardMarkup {
+func createLessonKeyboard() *models.InlineKeyboardMarkup {
 	return &models.InlineKeyboardMarkup{
 		InlineKeyboard: [][]models.InlineKeyboardButton{
-			{
-				{Text: "⏭️ Пропустить", CallbackData: fmt.Sprintf("skip:%s", field)},
-			},
+			{{Text: "1️⃣ пара 8:50-10:20", CallbackData: "lesson:1"}},
+			{{Text: "2️⃣ пара 10:35-12:05", CallbackData: "lesson:2"}},
+			{{Text: "3️⃣ пара 12:35-14:05", CallbackData: "lesson:3"}},
+			{{Text: "4️⃣ пара 14:15-15:45", CallbackData: "lesson:4"}},
+			{{Text: "5️⃣ пара 15:55-17:20", CallbackData: "lesson:5"}},
+			{{Text: "6️⃣ пара 17:30-19:00", CallbackData: "lesson:6"}},
+			{{Text: "7️⃣ пара 19:10-20:30", CallbackData: "lesson:7"}},
+			{{Text: "8️⃣ пара 20:40-22:00", CallbackData: "lesson:8"}},
 		},
 	}
 }

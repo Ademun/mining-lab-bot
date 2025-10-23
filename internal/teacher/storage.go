@@ -22,7 +22,7 @@ func NewRepo(db *sqlx.DB) Repo {
 }
 
 func (t *teacherRepo) FindByWeekNumberWeekdayAuditorium(ctx context.Context, weekNumber int, weekday time.Weekday, auditorium int) ([]model.Teacher, error) {
-	query := `select id, name, auditorium, week_number, weekday, time_start, time_end from teachers where week_number = ? and weekday = ? and auditorium = ?`
+	query := `select id, name, auditorium, week_number, weekday, time_start, time_end from teachers where week_number = :week_number and weekday = :weekday and auditorium = :auditorium`
 	var teachers []model.Teacher
 	err := t.db.SelectContext(ctx, &teachers, query, weekNumber, weekday, auditorium)
 	if err != nil {

@@ -2,7 +2,6 @@ package teacher
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"time"
 
@@ -58,7 +57,6 @@ func (s *teacherService) Stop(ctx context.Context) {
 }
 
 func (s *teacherService) FindTeachersForTime(ctx context.Context, targetTime time.Time, auditorium int) []model.Teacher {
-	fmt.Println(targetTime.Weekday())
 	teachers, err := s.teacherRepo.FindByWeekNumberWeekdayAuditorium(ctx, 2, targetTime.Weekday(), auditorium)
 	if err != nil {
 		slog.Error("Failed to find teachers", "error", err, "service", logger.ServiceTeacher)

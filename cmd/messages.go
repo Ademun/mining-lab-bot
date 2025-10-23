@@ -61,23 +61,9 @@ func subAskWeekdayMessage() string {
 	return sb.String()
 }
 
-func subAskTimeMessage() string {
+func subAskLessonMessage() string {
 	var sb strings.Builder
-	sb.WriteString("<b>🕐 Введите время в формате ЧЧ:ММ</b>")
-	sb.WriteString(repeatLineBreaks(2))
-	sb.WriteString("Например: 14:30")
-	sb.WriteString(repeatLineBreaks(2))
-	sb.WriteString("Или пропустите, если время не важно")
-	return sb.String()
-}
-
-func subAskTeacherMessage() string {
-	var sb strings.Builder
-	sb.WriteString("<b>👨‍🏫 Введите фамилию преподавателя</b>")
-	sb.WriteString(repeatLineBreaks(2))
-	sb.WriteString("Например: Иванов")
-	sb.WriteString(repeatLineBreaks(2))
-	sb.WriteString("Или пропустите, если преподаватель не важен")
+	sb.WriteString("<b>🕐 Выберите пару</b>")
 	return sb.String()
 }
 
@@ -116,14 +102,6 @@ func subLabNumberValidationErrorMessage() string {
 func subAuditoriumNumberValidationErrorMessage() string {
 	var sb strings.Builder
 	sb.WriteString("<b>❌ Номер аудитории должен быть числом в диапазоне от 1 до 999</b>")
-	return sb.String()
-}
-
-func subTimeValidationErrorMessage() string {
-	var sb strings.Builder
-	sb.WriteString("<b>❌ Неверный формат времени</b>")
-	sb.WriteString(repeatLineBreaks(2))
-	sb.WriteString("Введите время в формате ЧЧ:ММ, например: 14:30")
 	return sb.String()
 }
 
