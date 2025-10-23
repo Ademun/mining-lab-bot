@@ -27,7 +27,8 @@ type telegramBot struct {
 }
 
 func NewBot(subService subscription.Service, opts *config.TelegramConfig) (Bot, error) {
-	b, err := bot.New(opts.BotToken)
+	botOpts := []bot.Option{bot.WithMiddlewares(typingMiddleware)}
+	b, err := bot.New(opts.BotToken, botOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("error creating bot: %w", err)
 	}

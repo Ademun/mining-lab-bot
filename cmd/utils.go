@@ -1,12 +1,15 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strconv"
 	"time"
 
 	"github.com/Ademun/mining-lab-bot/pkg/config"
+	"github.com/go-telegram/bot"
+	"github.com/go-telegram/bot/models"
 )
 
 func formatDateTime(t time.Time) string {
@@ -90,4 +93,20 @@ func parseTime(input string) (time.Time, error) {
 		now.Location())
 
 	return parsedTime, nil
+}
+
+func typingMiddleware(next bot.HandlerFunc) bot.HandlerFunc {
+	return func(ctx context.Context, b *bot.Bot, update *models.Update) {
+		var chatID int64
+		if update.Message != nil {
+			chatID = update.Message.Chat.ID
+		} else {
+			chatID = update.CallbackQuery.Message.Message.Chat.ID
+		}
+		b.SendChatAction(ctx, &bot.SendChatActionParams{
+			ChatID: chatID,
+			Action: models.ChatActionTyping,
+		})
+		next(ctx, b, update)
+	}
 }
