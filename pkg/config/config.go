@@ -13,6 +13,7 @@ import (
 type Config struct {
 	PollingConfig  PollingConfig  `yaml:"polling"`
 	TelegramConfig TelegramConfig `yaml:"telegram"`
+	TeacherConfig  TeacherConfig  `yaml:"teacher"`
 }
 
 type PollingConfig struct {
@@ -35,6 +36,10 @@ const (
 type TelegramConfig struct {
 	BotToken string
 	AdminID  int
+}
+
+type TeacherConfig struct {
+	StartingWeek int `yaml:"starting_week"`
 }
 
 func Load(configPath string) (*Config, error) {

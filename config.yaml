@@ -6,4 +6,5 @@ polling:
   aggressive_poll_rate: 30s
   normal_fetch_rate: 1s
   aggressive_fetch_rate: 500ms
-
+teacher:
+  staring_week: 2
