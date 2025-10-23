@@ -34,7 +34,7 @@ func (s *teacherService) Start() error {
 	slog.Info("Starting", "service", logger.ServiceTeacher)
 	c := cron.New(cron.WithLocation(time.Local))
 	_, err := c.AddFunc("0 0 * 0", func() {
-		slog.Info("Updating week number", logger.ServiceTeacher)
+		slog.Info("Updating week number", "service", logger.ServiceTeacher)
 		if s.weekNumber == 1 {
 			s.weekNumber = 2
 			return

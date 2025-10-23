@@ -36,7 +36,7 @@ func (s *pollingService) ParseServerData(ctx context.Context, data *ServerData, 
 		}
 
 		// TODO: Implement correct Defence detection when new slots are opened in November
-		var labType = model.LabPerformance
+		labType := model.LabPerformance
 
 		available := make([]model.TimeTeachers, 0)
 		for _, timeString := range dataTimes.TimesMap[id] {
@@ -108,9 +108,8 @@ func parseLabNumber(username string, serviceName string) (int, error) {
 	} else if match := numRe.FindStringSubmatch(serviceName); match != nil {
 		labNum, _ := strconv.Atoi(match[1])
 		return labNum, nil
-	} else {
-		return 0, &ErrParseData{data: username + " " + serviceName, msg: "lab number not found", err: errors.New("invalid lab name format")}
 	}
+	return 0, &ErrParseData{data: username + " " + serviceName, msg: "lab number not found", err: errors.New("invalid lab name format")}
 }
 
 func parseLabAuditorium(username string, serviceName string) (int, error) {
@@ -120,9 +119,8 @@ func parseLabAuditorium(username string, serviceName string) (int, error) {
 	} else if match := audRe.FindStringSubmatch(serviceName); match != nil {
 		labAud, _ := strconv.Atoi(match[1])
 		return labAud, nil
-	} else {
-		return 0, &ErrParseData{data: username + " " + serviceName, msg: "lab auditorium not found", err: errors.New("invalid lab name format")}
 	}
+	return 0, &ErrParseData{data: username + " " + serviceName, msg: "lab auditorium not found", err: errors.New("invalid lab name format")}
 }
 
 func parseLabOrder(username string, serviceName string) (int, error) {
@@ -132,9 +130,8 @@ func parseLabOrder(username string, serviceName string) (int, error) {
 	} else if match := orderRe.FindStringSubmatch(serviceName); match != nil {
 		labOrder, _ := strconv.Atoi(match[1])
 		return labOrder, nil
-	} else {
-		return 0, &ErrParseData{data: username + " " + serviceName, msg: "lab order not found", err: errors.New("invalid lab name format")}
 	}
+	return 0, &ErrParseData{data: username + " " + serviceName, msg: "lab order not found", err: errors.New("invalid lab name format")}
 }
 
 func parseTimeString(timeString string) (time.Time, error) {

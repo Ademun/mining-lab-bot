@@ -26,6 +26,8 @@ linters:
       check-type-assertions: true
       exclude-functions:
         - (*github.com/go-telegram/bot.Bot).SendMessage
+        - (*github.com/go-telegram/bot.Bot).AnswerCallbackQuery
+        - (*github.com/go-telegram/bot.Bot).EditMessageText
         - (*database/sql.Rows).Close
         - (io.Closer).Close
         - (*golang.org/x/time/rate.Limiter).Wait

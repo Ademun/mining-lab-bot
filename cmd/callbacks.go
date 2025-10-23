@@ -120,8 +120,7 @@ func (b *telegramBot) callbackSkipHandler(ctx context.Context, api *bot.Bot, upd
 	})
 
 	field := strings.TrimPrefix(update.CallbackQuery.Data, "skip:")
-	switch field {
-	case "weekday":
+	if field == "weekday" {
 		if state.Step != stepAwaitingWeekday {
 			return
 		}
