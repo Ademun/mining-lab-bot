@@ -7,14 +7,16 @@ import (
 	"time"
 
 	"github.com/Ademun/mining-lab-bot/pkg/config"
+	"github.com/Ademun/mining-lab-bot/pkg/model"
 )
 
-func formatDateTime(t time.Time) string {
-	now := time.Now()
-	date := formatDateRelative(t, now)
-	timeStr := t.Format("15:04")
-
-	return fmt.Sprintf("%s в %s", date, timeStr)
+func formatAvailableSlots(slots []model.TimeTeachers) map[string][]model.TimeTeachers {
+	slotsMap := make(map[string][]model.TimeTeachers)
+	for _, slot := range slots {
+		key := slot.Time.Format("2006-01-02")
+		slotsMap[key] = append(slotsMap[key], slot)
+	}
+	return slotsMap
 }
 
 func formatDateRelative(t time.Time, now time.Time) string {

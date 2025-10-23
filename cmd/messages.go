@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -41,7 +42,7 @@ func subAskLabNumberMessage() string {
 	var sb strings.Builder
 	sb.WriteString("<b>📚 Введите номер лабораторной работы</b>")
 	sb.WriteString(repeatLineBreaks(2))
-	sb.WriteString("Например: 3")
+	sb.WriteString("Например: 7")
 	return sb.String()
 }
 
@@ -49,7 +50,7 @@ func subAskAuditoriumMessage() string {
 	var sb strings.Builder
 	sb.WriteString("<b>🚪 Введите номер аудитории</b>")
 	sb.WriteString(repeatLineBreaks(2))
-	sb.WriteString("Например: 101")
+	sb.WriteString("Например: 233")
 	return sb.String()
 }
 
@@ -63,8 +64,18 @@ func subAskWeekdayMessage() string {
 
 func subAskLessonMessage() string {
 	var sb strings.Builder
-	sb.WriteString("<b>🕐 Выберите пару</b>")
+	sb.WriteString("<b>🕐 Выбери время</b>")
 	return sb.String()
+}
+
+var weekDayLocale = map[int]string{
+	0: "Воскресенье",
+	1: "Понедельник",
+	2: "Вторник",
+	3: "Среда",
+	4: "Четверг",
+	5: "Пятница",
+	6: "Суббота",
 }
 
 func subConfirmationMessage(data *subscriptionData) string {
@@ -82,7 +93,7 @@ func subConfirmationMessage(data *subscriptionData) string {
 
 	if weekday != nil {
 		sb.WriteString(repeatLineBreaks(2))
-		sb.WriteString(fmt.Sprintf("<b>📅 День:</b> %s", weekday.String()))
+		sb.WriteString(fmt.Sprintf("<b>📅 День:</b> %s", weekDayLocale[int(*weekday)]))
 	}
 
 	if timeStr != "" {
@@ -257,6 +268,17 @@ func statsSuccessMessage(snapshot *metrics.Metrics) string {
 	return sb.String()
 }
 
+var timeLessonMap = map[string]string{
+	"8:50":  "1️⃣ 8:50 - 10:20",
+	"10:35": "2️⃣ 10:35 - 12:05",
+	"12:35": "3️⃣ 12:35 - 14:05",
+	"14:15": "4️⃣ 14:15 - 15:45",
+	"15:55": "5️⃣ 15:55 - 17:20",
+	"17:30": "6️⃣ 17:30 - 19:00",
+	"19:10": "7️⃣ 19:10 - 20:30",
+	"20:40": "8️⃣ 20:40 - 22:00",
+}
+
 func notifySuccessMessage(slot *model.Slot) string {
 	var sb strings.Builder
 	sb.WriteString("<b>🔥 Появилась запись!</b>")
@@ -271,16 +293,41 @@ func notifySuccessMessage(slot *model.Slot) string {
 	sb.WriteString(fmt.Sprintf("<b>🚪 Аудитория №%d</b>", slot.LabAuditorium))
 	sb.WriteString(repeatLineBreaks(2))
 	sb.WriteString("<b>🗓️ Когда:</b>")
-	sb.WriteString(repeatLineBreaks(2))
-	for _, available := range slot.Available {
-		sb.WriteString(fmt.Sprintf("<b>%s </b>", formatDateTime(available.Time)))
-		for _, teacher := range available.Teachers {
-			sb.WriteString(fmt.Sprintf("<b>%s </b>", teacher.Name))
+	sb.WriteString(repeatLineBreaks(1))
+	writeSlotsInfo(slot, &sb)
+	sb.WriteString(fmt.Sprintf("<b>🔗 <a href='%s'>Ссылка на запись</a></b>", slot.URL))
+	return sb.String()
+}
+
+func writeSlotsInfo(slot *model.Slot, sb *strings.Builder) {
+	available := formatAvailableSlots(slot.Available)
+	keys := make([]string, 0)
+	for k := range available {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		val := available[k]
+		parsedTime, _ := time.Parse("2006-01-02", k)
+		relativeDate := formatDateRelative(parsedTime, time.Now())
+		// Evil Braille pattern blank character for indentation trick
+		sb.WriteString(fmt.Sprintf("<b>⠀⠀%s:</b>", relativeDate))
+		sb.WriteString(repeatLineBreaks(1))
+		for idx, v := range val {
+			timeStart := v.Time.Format("15:04")
+			timePart := timeLessonMap[timeStart]
+			teacherPart := make([]string, len(v.Teachers))
+			for idx, teacher := range v.Teachers {
+				teacherPart[idx] = teacher.Name
+			}
+			// Evil Braille pattern blank character for indentation trick
+			sb.WriteString(fmt.Sprintf("<b>⠀⠀%s %s</b>", timePart, strings.Join(teacherPart, ", ")))
+			if idx != len(val)-1 {
+				sb.WriteString(repeatLineBreaks(1))
+			}
 		}
 		sb.WriteString(repeatLineBreaks(2))
 	}
-	sb.WriteString(fmt.Sprintf("<b>🔗 <a href='%s'>Ссылка на запись</a></b>", slot.URL))
-	return sb.String()
 }
 
 func repeatLineBreaks(breaks int) string {

@@ -10,20 +10,14 @@ import (
 func createWeekdayKeyboard() *models.InlineKeyboardMarkup {
 	return &models.InlineKeyboardMarkup{
 		InlineKeyboard: [][]models.InlineKeyboardButton{
-			{
-				{Text: "ПН", CallbackData: "weekday:1"},
-				{Text: "ВТ", CallbackData: "weekday:2"},
-				{Text: "СР", CallbackData: "weekday:3"},
-				{Text: "ЧТ", CallbackData: "weekday:4"},
-			},
-			{
-				{Text: "ПТ", CallbackData: "weekday:5"},
-				{Text: "СБ", CallbackData: "weekday:6"},
-				{Text: "ВС", CallbackData: "weekday:0"},
-			},
-			{
-				{Text: "⏭️ Пропустить", CallbackData: "skip:weekday"},
-			},
+			{{Text: "Понедельник", CallbackData: "weekday:1"}},
+			{{Text: "Вторник", CallbackData: "weekday:2"}},
+			{{Text: "Среда", CallbackData: "weekday:3"}},
+			{{Text: "Четверг", CallbackData: "weekday:4"}},
+			{{Text: "Пятница", CallbackData: "weekday:5"}},
+			{{Text: "Суббота", CallbackData: "weekday:6"}},
+			{{Text: "Воскресенье", CallbackData: "weekday:0"}},
+			{{Text: "⏭️ Пропустить", CallbackData: "skip:weekday"}},
 		},
 	}
 }
@@ -31,14 +25,14 @@ func createWeekdayKeyboard() *models.InlineKeyboardMarkup {
 func createLessonKeyboard() *models.InlineKeyboardMarkup {
 	return &models.InlineKeyboardMarkup{
 		InlineKeyboard: [][]models.InlineKeyboardButton{
-			{{Text: "1️⃣ пара 8:50-10:20", CallbackData: "lesson:1"}},
-			{{Text: "2️⃣ пара 10:35-12:05", CallbackData: "lesson:2"}},
-			{{Text: "3️⃣ пара 12:35-14:05", CallbackData: "lesson:3"}},
-			{{Text: "4️⃣ пара 14:15-15:45", CallbackData: "lesson:4"}},
-			{{Text: "5️⃣ пара 15:55-17:20", CallbackData: "lesson:5"}},
-			{{Text: "6️⃣ пара 17:30-19:00", CallbackData: "lesson:6"}},
-			{{Text: "7️⃣ пара 19:10-20:30", CallbackData: "lesson:7"}},
-			{{Text: "8️⃣ пара 20:40-22:00", CallbackData: "lesson:8"}},
+			{{Text: "8:50 - 10:20 - 1️⃣ пара", CallbackData: "lesson:1"}},
+			{{Text: "10:35 - 12:05 - 2️⃣ пара", CallbackData: "lesson:2"}},
+			{{Text: "12:35 - 14:05 - 3️⃣ пара", CallbackData: "lesson:3"}},
+			{{Text: "14:15 - 15:45 - 4️⃣ пара", CallbackData: "lesson:4"}},
+			{{Text: "15:55 - 17:20 - 5️⃣ пара", CallbackData: "lesson:5"}},
+			{{Text: "17:30 - 19:00 - 6️⃣ пара", CallbackData: "lesson:6"}},
+			{{Text: "19:10 - 20:30 - 7️⃣ пара", CallbackData: "lesson:7"}},
+			{{Text: "20:40 - 22:00 - 8️⃣ пара", CallbackData: "lesson:8"}},
 		},
 	}
 }
