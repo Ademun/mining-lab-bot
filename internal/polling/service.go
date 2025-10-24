@@ -17,8 +17,6 @@ import (
 type Service interface {
 	Start(ctx context.Context) error
 	Stop(ctx context.Context) error
-	GetPollingMode() config.PollingMode
-	SetPollingMode(mode config.PollingMode)
 }
 
 type pollingService struct {
@@ -69,18 +67,6 @@ func (s *pollingService) Stop(ctx context.Context) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
-}
-
-func (s *pollingService) GetPollingMode() config.PollingMode {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.options.Mode
-}
-
-func (s *pollingService) SetPollingMode(mode config.PollingMode) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.options.Mode = mode
 }
 
 func (s *pollingService) startPollingLoop(ctx context.Context) {
@@ -164,9 +150,9 @@ func (s *pollingService) poll(ctx context.Context) {
 			slog.Warn("Polling error", "error", err, "service", logger.ServicePolling)
 		}
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	metrics.Global().RecordPollResults(dataLen, len(s.serviceIDs), parseErrs, fetchErrs, s.GetPollingMode(), time.Since(start))
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	metrics.Global().RecordPollResults(dataLen, len(s.serviceIDs), parseErrs, fetchErrs, s.options.Mode, time.Since(start))
 }
 
 func (s *pollingService) startIDUpdateLoop(ctx context.Context) {

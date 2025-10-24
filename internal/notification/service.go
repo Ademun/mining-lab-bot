@@ -63,7 +63,9 @@ func (s *notificationService) SendNotification(ctx context.Context, slot model.S
 			PreferredTimes: prefTimes[userID],
 			Slot:           slot,
 		}
-		limiter.Wait(ctx)
+		if err = limiter.Wait(ctx); err != nil {
+			slog.Error("Limiter error", "err", err, "service", logger.ServiceNotification)
+		}
 		s.notifier.SendNotification(ctx, notif)
 	}
 	metrics.Global().RecordNotificationResults(len(userIDsMap), len(s.cache.List()))
