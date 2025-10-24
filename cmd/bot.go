@@ -61,16 +61,16 @@ func (b *telegramBot) Start(ctx context.Context) {
 
 func (b *telegramBot) SendNotification(ctx context.Context, notif model.Notification) {
 	targetUser := notif.ChatID
-	slot := notif.Slot
 
 	hidePreview := true
 	b.api.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID: targetUser,
-		Text:   notifySuccessMessage(&slot),
+		Text:   notifySuccessMessage(&notif),
 		LinkPreviewOptions: &models.LinkPreviewOptions{
 			IsDisabled: &hidePreview,
 		},
-		ParseMode: models.ParseModeHTML,
+		ReplyMarkup: createLinkKeyboard(notif.Slot.URL),
+		ParseMode:   models.ParseModeHTML,
 	})
 }
 

@@ -25,7 +25,7 @@ func createWeekdayKeyboard() *models.InlineKeyboardMarkup {
 func createLessonKeyboard() *models.InlineKeyboardMarkup {
 	return &models.InlineKeyboardMarkup{
 		InlineKeyboard: [][]models.InlineKeyboardButton{
-			{{Text: "8:50 - 10:20 - 1️⃣ пара", CallbackData: "lesson:1"}},
+			{{Text: "08:50 - 10:20 - 1️⃣ пара", CallbackData: "lesson:1"}},
 			{{Text: "10:35 - 12:05 - 2️⃣ пара", CallbackData: "lesson:2"}},
 			{{Text: "12:35 - 14:05 - 3️⃣ пара", CallbackData: "lesson:3"}},
 			{{Text: "14:15 - 15:45 - 4️⃣ пара", CallbackData: "lesson:4"}},
@@ -74,6 +74,16 @@ func createDeleteAllConfirmKeyboard() *models.InlineKeyboardMarkup {
 			{
 				{Text: "✅ Да, удалить", CallbackData: "unsub:all:confirm"},
 				{Text: "❌ Нет", CallbackData: "unsub:all:cancel"},
+			},
+		},
+	}
+}
+
+func createLinkKeyboard(url string) *models.InlineKeyboardMarkup {
+	return &models.InlineKeyboardMarkup{
+		InlineKeyboard: [][]models.InlineKeyboardButton{
+			{
+				{Text: "🔗 ЗАПИСАТЬСЯ", URL: url},
 			},
 		},
 	}

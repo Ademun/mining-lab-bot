@@ -43,7 +43,7 @@ func formatDateLong(t time.Time) string {
 		"июля", "августа", "сентября", "октября", "ноября", "декабря",
 	}
 
-	return fmt.Sprintf("%d %s", t.Day(), months[t.Month()-1])
+	return fmt.Sprintf("%d %s (%s)", t.Day(), months[t.Month()-1], weekDayLocale[int(t.Weekday())])
 }
 
 func formatDuration(d time.Duration) string {

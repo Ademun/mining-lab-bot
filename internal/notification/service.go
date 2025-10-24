@@ -45,10 +45,16 @@ func (s *notificationService) SendNotification(ctx context.Context, slot model.S
 	}
 
 	for _, sub := range subs {
+		var prefTime model.PreferredTime
+		if sub.Weekday != nil && sub.DayTime != nil {
+			prefTime.Weekday = *sub.Weekday
+			prefTime.DayTime = *sub.DayTime
+		}
 		notif := model.Notification{
-			UserID: sub.UserID,
-			ChatID: sub.ChatID,
-			Slot:   slot,
+			UserID:        sub.UserID,
+			ChatID:        sub.ChatID,
+			PreferredTime: prefTime,
+			Slot:          slot,
 		}
 		s.notifier.SendNotification(ctx, notif)
 	}
@@ -58,12 +64,17 @@ func (s *notificationService) SendNotification(ctx context.Context, slot model.S
 
 func (s *notificationService) NotifyNewSubscription(ctx context.Context, sub model.Subscription) {
 	slots := s.findSlotsBySubscriptionInfo(sub)
-
+	var prefTime model.PreferredTime
+	if sub.Weekday != nil && sub.DayTime != nil {
+		prefTime.Weekday = *sub.Weekday
+		prefTime.DayTime = *sub.DayTime
+	}
 	for _, slot := range slots {
 		notif := model.Notification{
-			UserID: sub.UserID,
-			ChatID: sub.ChatID,
-			Slot:   slot,
+			UserID:        sub.UserID,
+			ChatID:        sub.ChatID,
+			PreferredTime: prefTime,
+			Slot:          slot,
 		}
 		s.notifier.SendNotification(ctx, notif)
 	}

@@ -60,8 +60,13 @@ type Subscription struct {
 type Notification struct {
 	UserID        int
 	ChatID        int
-	PreferredTime time.Time
+	PreferredTime PreferredTime
 	Slot          Slot
+}
+
+type PreferredTime struct {
+	Weekday time.Weekday
+	DayTime string
 }
 
 type Teacher struct {

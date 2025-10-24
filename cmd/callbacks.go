@@ -203,7 +203,7 @@ func (b *telegramBot) callbackConfirmSubHandler(ctx context.Context, api *bot.Bo
 
 	api.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID:    chatID,
-		Text:      subCreationSuccessMessage(sub.LabNumber, sub.LabAuditorium),
+		Text:      subCreationSuccessMessage(),
 		ParseMode: models.ParseModeHTML,
 	})
 

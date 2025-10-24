@@ -98,7 +98,7 @@ func subConfirmationMessage(data *subscriptionData) string {
 
 	if timeStr != "" {
 		sb.WriteString(repeatLineBreaks(2))
-		sb.WriteString(fmt.Sprintf("<b>🕐 Время:</b> %s", timeStr))
+		sb.WriteString(fmt.Sprintf("<b>🕐 Время:</b> %s", timeLessonMap[timeStr]))
 	}
 
 	return sb.String()
@@ -130,13 +130,9 @@ func subCreationErrorMessage(err error) string {
 	return sb.String()
 }
 
-func subCreationSuccessMessage(labNumber, labAuditorium int) string {
+func subCreationSuccessMessage() string {
 	var sb strings.Builder
 	sb.WriteString("<b>✅ Подписка создана!</b>")
-	sb.WriteString(repeatLineBreaks(2))
-	sb.WriteString(fmt.Sprintf("<b>📚 Лаба №%d</b>", labNumber))
-	sb.WriteString(repeatLineBreaks(2))
-	sb.WriteString(fmt.Sprintf("<b>🚪 Аудитория №%d</b>", labAuditorium))
 	sb.WriteString(repeatLineBreaks(2))
 	sb.WriteString("<b>🔔 Вы получите уведомление, когда появится нужная запись</b>")
 	return sb.String()
@@ -269,7 +265,7 @@ func statsSuccessMessage(snapshot *metrics.Metrics) string {
 }
 
 var timeLessonMap = map[string]string{
-	"8:50":  "1️⃣ 8:50 - 10:20",
+	"08:50": "1️⃣ 08:50 - 10:20",
 	"10:35": "2️⃣ 10:35 - 12:05",
 	"12:35": "3️⃣ 12:35 - 14:05",
 	"14:15": "4️⃣ 14:15 - 15:45",
@@ -279,13 +275,13 @@ var timeLessonMap = map[string]string{
 	"20:40": "8️⃣ 20:40 - 22:00",
 }
 
-func notifySuccessMessage(slot *model.Slot) string {
+func notifySuccessMessage(notif *model.Notification) string {
+	slot := &notif.Slot
 	var sb strings.Builder
 	sb.WriteString("<b>🔥 Появилась запись!</b>")
 	sb.WriteString(repeatLineBreaks(3))
 	longName := slot.LabName
 	if slot.LabOrder != 0 {
-		// A lab order can only be the 1 or 2. So there is only one ending -ое
 		longName += fmt.Sprintf(" (%d-ое место)", slot.LabOrder)
 	}
 	sb.WriteString(fmt.Sprintf("<b>📚 Лаба №%d. %s</b>", slot.LabNumber, longName))
@@ -294,40 +290,110 @@ func notifySuccessMessage(slot *model.Slot) string {
 	sb.WriteString(repeatLineBreaks(2))
 	sb.WriteString("<b>🗓️ Когда:</b>")
 	sb.WriteString(repeatLineBreaks(1))
-	writeSlotsInfo(slot, &sb)
-	sb.WriteString(fmt.Sprintf("<b>🔗 <a href='%s'>Ссылка на запись</a></b>", slot.URL))
+	writeSlotsInfo(slot, &sb, notif.PreferredTime)
 	return sb.String()
 }
 
-func writeSlotsInfo(slot *model.Slot, sb *strings.Builder) {
+func writeSlotsInfo(slot *model.Slot, sb *strings.Builder, preferredTime model.PreferredTime) {
 	available := formatAvailableSlots(slot.Available)
-	keys := make([]string, 0)
-	for k := range available {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	for _, k := range keys {
+
+	keys := sortDatesByPreference(available, preferredTime)
+
+	for idx, k := range keys {
 		val := available[k]
 		parsedTime, _ := time.Parse("2006-01-02", k)
 		relativeDate := formatDateRelative(parsedTime, time.Now())
-		// Evil Braille pattern blank character for indentation trick
+
+		isPreferredDate := parsedTime.Weekday() == preferredTime.Weekday
+
 		sb.WriteString(fmt.Sprintf("<b>⠀⠀%s:</b>", relativeDate))
 		sb.WriteString(repeatLineBreaks(1))
-		for idx, v := range val {
+
+		sortedSlots := sortSlotsByPreference(val, preferredTime.DayTime, isPreferredDate)
+
+		for idx, v := range sortedSlots {
 			timeStart := v.Time.Format("15:04")
 			timePart := timeLessonMap[timeStart]
 			teacherPart := make([]string, len(v.Teachers))
 			for idx, teacher := range v.Teachers {
 				teacherPart[idx] = teacher.Name
 			}
-			// Evil Braille pattern blank character for indentation trick
-			sb.WriteString(fmt.Sprintf("<b>⠀⠀%s %s</b>", timePart, strings.Join(teacherPart, ", ")))
-			if idx != len(val)-1 {
+
+			isPreferredSlot := isPreferredDate && timeStart == preferredTime.DayTime
+			if isPreferredSlot {
+				sb.WriteString(fmt.Sprintf("<b>⠀⠀%s %s ⭐ Ваше время</b>", timePart, strings.Join(teacherPart, ", ")))
+			} else {
+				sb.WriteString(fmt.Sprintf("<b>⠀⠀%s %s</b>", timePart, strings.Join(teacherPart, ", ")))
+			}
+
+			if idx != len(sortedSlots)-1 {
 				sb.WriteString(repeatLineBreaks(1))
 			}
 		}
-		sb.WriteString(repeatLineBreaks(2))
+		if idx != len(keys)-1 {
+			sb.WriteString(repeatLineBreaks(2))
+		}
 	}
+}
+
+func sortDatesByPreference(available map[string][]model.TimeTeachers, preferredTime model.PreferredTime) []string {
+	keys := make([]string, 0, len(available))
+	for k := range available {
+		keys = append(keys, k)
+	}
+
+	sort.Slice(keys, func(i, j int) bool {
+		dateI, _ := time.Parse("2006-01-02", keys[i])
+		dateJ, _ := time.Parse("2006-01-02", keys[j])
+
+		isPreferredI := dateI.Weekday() == preferredTime.Weekday
+		isPreferredJ := dateJ.Weekday() == preferredTime.Weekday
+
+		if isPreferredI && !isPreferredJ {
+			return true
+		}
+		if !isPreferredI && isPreferredJ {
+			return false
+		}
+
+		return dateI.Before(dateJ)
+	})
+
+	return keys
+}
+
+func sortSlotsByPreference(slots []model.TimeTeachers, preferredDayTime string, isPreferredDate bool) []model.TimeTeachers {
+	sorted := make([]model.TimeTeachers, len(slots))
+	copy(sorted, slots)
+
+	if !isPreferredDate {
+		sort.Slice(sorted, func(i, j int) bool {
+			return sorted[i].Time.Before(sorted[j].Time)
+		})
+		return sorted
+	}
+
+	sort.Slice(sorted, func(i, j int) bool {
+		timeI := sorted[i].Time.Format("15:04")
+
+		timeJ := sorted[j].Time.Format("15:04")
+
+		isPreferredI := timeI == preferredDayTime
+		isPreferredJ := timeJ == preferredDayTime
+
+		// Предпочтительное время всегда первое
+		if isPreferredI && !isPreferredJ {
+			return true
+		}
+		if !isPreferredI && isPreferredJ {
+			return false
+		}
+
+		// Остальные по времени
+		return sorted[i].Time.Before(sorted[j].Time)
+	})
+
+	return sorted
 }
 
 func repeatLineBreaks(breaks int) string {
