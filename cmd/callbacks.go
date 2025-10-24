@@ -2,11 +2,14 @@ package cmd
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/Ademun/mining-lab-bot/pkg/errs"
 	"github.com/Ademun/mining-lab-bot/pkg/model"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
@@ -63,7 +66,7 @@ func (b *telegramBot) callbackWeekdayHandler(ctx context.Context, api *bot.Bot, 
 }
 
 var lessonTimeMap = map[int]string{
-	1: "8:50",
+	1: "08:50",
 	2: "10:35",
 	3: "12:35",
 	4: "14:15",
@@ -90,10 +93,15 @@ func (b *telegramBot) callbackLessonHandler(ctx context.Context, api *bot.Bot, u
 	lesson, _ := strconv.Atoi(lessonString)
 	lessonTime := lessonTimeMap[lesson]
 
-	state.Data.Daytime = lessonTime
+	state.Data.Daytime = &lessonTime
 	state.Step = stepConfirming
 
 	b.stateManager.set(userID, state)
+
+	api.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
+		CallbackQueryID: update.CallbackQuery.ID,
+	})
+
 	api.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID:      chatID,
 		Text:        subConfirmationMessage(&state.Data),
@@ -125,7 +133,7 @@ func (b *telegramBot) callbackSkipHandler(ctx context.Context, api *bot.Bot, upd
 			return
 		}
 		state.Data.Weekday = nil
-		state.Data.Daytime = ""
+		state.Data.Daytime = nil
 		state.Step = stepConfirming
 		b.stateManager.set(userID, state)
 		api.SendMessage(ctx, &bot.SendMessageParams{
@@ -172,11 +180,11 @@ func (b *telegramBot) callbackConfirmSubHandler(ctx context.Context, api *bot.Bo
 		LabNumber:     state.Data.LabNumber,
 		LabAuditorium: state.Data.LabAuditorium,
 		Weekday:       state.Data.Weekday,
-		DayTime:       &state.Data.Daytime,
+		DayTime:       state.Data.Daytime,
 	}
 
-	if state.Data.Daytime != "" {
-		_, err := parseTime(state.Data.Daytime)
+	if state.Data.Daytime != nil {
+		_, err := parseTime(*state.Data.Daytime)
 		if err != nil {
 			api.SendMessage(ctx, &bot.SendMessageParams{
 				ChatID:    chatID,
@@ -189,6 +197,9 @@ func (b *telegramBot) callbackConfirmSubHandler(ctx context.Context, api *bot.Bo
 	}
 
 	if err := b.subscriptionService.Subscribe(ctx, sub); err != nil {
+		if errors.Is(err, errs.ErrSubscriptionExists) {
+			err = fmt.Errorf("вы уже создали такую подписку")
+		}
 		api.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID:    chatID,
 			Text:      subCreationErrorMessage(err),
@@ -280,9 +291,8 @@ func (b *telegramBot) callbackUnsubHandler(ctx context.Context, api *bot.Bot, up
 		})
 
 		api.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID: chatID,
-			Text: unsubSuccessMessage(targetSub.LabNumber,
-				targetSub.LabAuditorium),
+			ChatID:    chatID,
+			Text:      unsubSuccessMessage(),
 			ParseMode: models.ParseModeHTML,
 		})
 	case data == "unsub:all":
@@ -335,8 +345,5 @@ func (b *telegramBot) callbackUnsubHandler(ctx context.Context, api *bot.Bot, up
 			ParseMode:   models.ParseModeHTML,
 			ReplyMarkup: createUnsubKeyboard(subs),
 		})
-
-	case strings.HasPrefix(data, "unsub:view:"):
-		return
 	}
 }

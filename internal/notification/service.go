@@ -2,6 +2,7 @@ package notification
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -44,16 +45,19 @@ func (s *notificationService) SendNotification(ctx context.Context, slot model.S
 		slog.Error("Failed to find subscriptions", "slot", slot, "err", err, "service", logger.ServiceNotification)
 	}
 
+	prefTimes := getSubscriptionPreferredTimes(subs...)
+	userIDsMap := make(map[int]struct{})
 	for _, sub := range subs {
-		var prefTime model.PreferredTime
-		if sub.Weekday != nil && sub.DayTime != nil {
-			prefTime.Weekday = *sub.Weekday
-			prefTime.DayTime = *sub.DayTime
+		if _, ok := userIDsMap[sub.UserID]; ok {
+			continue
 		}
+		userIDsMap[sub.UserID] = struct{}{}
+	}
+	for userID := range userIDsMap {
 		notif := model.Notification{
-			UserID:        sub.UserID,
-			PreferredTime: prefTime,
-			Slot:          slot,
+			UserID:         userID,
+			PreferredTimes: prefTimes[userID],
+			Slot:           slot,
 		}
 		s.notifier.SendNotification(ctx, notif)
 	}
@@ -63,16 +67,13 @@ func (s *notificationService) SendNotification(ctx context.Context, slot model.S
 
 func (s *notificationService) NotifyNewSubscription(ctx context.Context, sub model.Subscription) {
 	slots := s.findSlotsBySubscriptionInfo(sub)
-	var prefTime model.PreferredTime
-	if sub.Weekday != nil && sub.DayTime != nil {
-		prefTime.Weekday = *sub.Weekday
-		prefTime.DayTime = *sub.DayTime
-	}
+
+	prefTimes := getSubscriptionPreferredTimes(sub)
 	for _, slot := range slots {
 		notif := model.Notification{
-			UserID:        sub.UserID,
-			PreferredTime: prefTime,
-			Slot:          slot,
+			UserID:         sub.UserID,
+			PreferredTimes: prefTimes[sub.UserID],
+			Slot:           slot,
 		}
 		s.notifier.SendNotification(ctx, notif)
 	}
@@ -80,12 +81,40 @@ func (s *notificationService) NotifyNewSubscription(ctx context.Context, sub mod
 	slog.Info("Finished sending notifications", "total", len(slots), "sub", sub, "service", logger.ServiceNotification)
 }
 
+func getSubscriptionPreferredTimes(subs ...model.Subscription) map[int][]model.PreferredTime {
+	userPrefTimes := make(map[int][]model.PreferredTime)
+	for _, sub := range subs {
+		userID := sub.UserID
+		var prefTime model.PreferredTime
+		if sub.Weekday != nil && sub.DayTime != nil {
+			prefTime.Weekday = *sub.Weekday
+			prefTime.DayTime = *sub.DayTime
+		}
+		if _, exists := userPrefTimes[userID]; !exists {
+			userPrefTimes[userID] = []model.PreferredTime{prefTime}
+			continue
+		}
+		userPrefTimes[userID] = append(userPrefTimes[userID], prefTime)
+	}
+	return userPrefTimes
+}
+
 func (s *notificationService) findSlotsBySubscriptionInfo(sub model.Subscription) []model.Slot {
 	slots := s.cache.List()
 	items := make([]model.Slot, 0)
 	for _, slot := range slots {
-		if slot.LabNumber == sub.LabNumber && slot.LabAuditorium == sub.LabAuditorium {
+		if slot.LabNumber != sub.LabNumber || slot.LabAuditorium != sub.LabAuditorium {
+			continue
+		}
+		if sub.Weekday == nil || sub.DayTime == nil {
 			items = append(items, slot)
+		}
+		prefTime := fmt.Sprintf("%d-%s", *sub.Weekday, *sub.DayTime)
+		for _, available := range slot.Available {
+			slotTime := fmt.Sprintf("%d-%s", available.Time.Weekday(), available.Time.Format("15:04"))
+			if prefTime == slotTime {
+				items = append(items, slot)
+			}
 		}
 	}
 	return items

@@ -96,9 +96,9 @@ func subConfirmationMessage(data *subscriptionData) string {
 		sb.WriteString(fmt.Sprintf("<b>📅 День:</b> %s", weekDayLocale[int(*weekday)]))
 	}
 
-	if timeStr != "" {
+	if timeStr != nil {
 		sb.WriteString(repeatLineBreaks(2))
-		sb.WriteString(fmt.Sprintf("<b>🕐 Время:</b> %s", timeLessonMap[timeStr]))
+		sb.WriteString(fmt.Sprintf("<b>🕐 Время:</b> %s", timeLessonMap[*timeStr]))
 	}
 
 	return sb.String()
@@ -182,10 +182,9 @@ func unsubErrorMessage(err error) string {
 	return sb.String()
 }
 
-func unsubSuccessMessage(labNumber, labAuditorium int) string {
+func unsubSuccessMessage() string {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("<b>✅ Вы больше не подписаны на лабу №%d в ауд. №%d</b>",
-		labNumber, labAuditorium))
+	sb.WriteString("<b>✅ Вы больше не подписаны на эту лабу</b>")
 	return sb.String()
 }
 
@@ -202,8 +201,15 @@ func listSubsSuccessMessage(subs []model.Subscription) string {
 	sb.WriteString("<b>📋 Ваши подписки:</b>")
 	sb.WriteString(repeatLineBreaks(2))
 	for idx, sub := range subs {
-		sb.WriteString(fmt.Sprintf("<b>%d.</b> Лаба №%d, ауд. №%d", idx+1,
-			sub.LabNumber, sub.LabAuditorium))
+		label := fmt.Sprintf("Лаба №%d, ауд. №%d", sub.LabNumber, sub.LabAuditorium)
+		var timeString string
+		if sub.Weekday != nil && sub.DayTime != nil {
+			timeString = fmt.Sprintf(", %s %s", weekDayLocale[int(*sub.Weekday)], timeLessonMap[*sub.DayTime])
+		} else {
+			timeString = ", Любое время"
+		}
+		label += timeString
+		sb.WriteString(fmt.Sprintf("<b>• %s</b>", label))
 		if idx == len(subs)-1 {
 			break
 		}
@@ -290,26 +296,30 @@ func notifySuccessMessage(notif *model.Notification) string {
 	sb.WriteString(repeatLineBreaks(2))
 	sb.WriteString("<b>🗓️ Когда:</b>")
 	sb.WriteString(repeatLineBreaks(1))
-	writeSlotsInfo(slot, &sb, notif.PreferredTime)
+	writeSlotsInfo(slot, &sb, notif.PreferredTimes)
 	return sb.String()
 }
 
-func writeSlotsInfo(slot *model.Slot, sb *strings.Builder, preferredTime model.PreferredTime) {
+func writeSlotsInfo(slot *model.Slot, sb *strings.Builder, preferredTimes []model.PreferredTime) {
 	available := formatAvailableSlots(slot.Available)
 
-	keys := sortDatesByPreference(available, preferredTime)
+	keys := sortDatesByPreference(available, preferredTimes)
 
-	for idx, k := range keys {
+	preferredSet := make(map[string]bool)
+	for _, pt := range preferredTimes {
+		key := fmt.Sprintf("%d_%s", pt.Weekday, pt.DayTime)
+		preferredSet[key] = true
+	}
+
+	for _, k := range keys {
 		val := available[k]
 		parsedTime, _ := time.Parse("2006-01-02", k)
 		relativeDate := formatDateRelative(parsedTime, time.Now())
 
-		isPreferredDate := parsedTime.Weekday() == preferredTime.Weekday
-
 		sb.WriteString(fmt.Sprintf("<b>⠀⠀%s:</b>", relativeDate))
 		sb.WriteString(repeatLineBreaks(1))
 
-		sortedSlots := sortSlotsByPreference(val, preferredTime.DayTime, isPreferredDate)
+		sortedSlots := sortSlotsByPreference(val, preferredTimes, parsedTime.Weekday())
 
 		for idx, v := range sortedSlots {
 			timeStart := v.Time.Format("15:04")
@@ -319,9 +329,11 @@ func writeSlotsInfo(slot *model.Slot, sb *strings.Builder, preferredTime model.P
 				teacherPart[idx] = teacher.Name
 			}
 
-			isPreferredSlot := isPreferredDate && timeStart == preferredTime.DayTime
+			preferredKey := fmt.Sprintf("%d_%s", parsedTime.Weekday(), timeStart)
+			isPreferredSlot := preferredSet[preferredKey]
+
 			if isPreferredSlot {
-				sb.WriteString(fmt.Sprintf("<b>⠀⠀%s %s ⭐ Ваше время</b>", timePart, strings.Join(teacherPart, ", ")))
+				sb.WriteString(fmt.Sprintf("<b>⠀⠀%s %s ⭐️Ваше время</b>", timePart, strings.Join(teacherPart, ", ")))
 			} else {
 				sb.WriteString(fmt.Sprintf("<b>⠀⠀%s %s</b>", timePart, strings.Join(teacherPart, ", ")))
 			}
@@ -330,24 +342,27 @@ func writeSlotsInfo(slot *model.Slot, sb *strings.Builder, preferredTime model.P
 				sb.WriteString(repeatLineBreaks(1))
 			}
 		}
-		if idx != len(keys)-1 {
-			sb.WriteString(repeatLineBreaks(2))
-		}
+		sb.WriteString(repeatLineBreaks(2))
 	}
 }
 
-func sortDatesByPreference(available map[string][]model.TimeTeachers, preferredTime model.PreferredTime) []string {
+func sortDatesByPreference(available map[string][]model.TimeTeachers, preferredTimes []model.PreferredTime) []string {
 	keys := make([]string, 0, len(available))
 	for k := range available {
 		keys = append(keys, k)
+	}
+
+	preferredWeekdays := make(map[time.Weekday]bool)
+	for _, pt := range preferredTimes {
+		preferredWeekdays[pt.Weekday] = true
 	}
 
 	sort.Slice(keys, func(i, j int) bool {
 		dateI, _ := time.Parse("2006-01-02", keys[i])
 		dateJ, _ := time.Parse("2006-01-02", keys[j])
 
-		isPreferredI := dateI.Weekday() == preferredTime.Weekday
-		isPreferredJ := dateJ.Weekday() == preferredTime.Weekday
+		isPreferredI := preferredWeekdays[dateI.Weekday()]
+		isPreferredJ := preferredWeekdays[dateJ.Weekday()]
 
 		if isPreferredI && !isPreferredJ {
 			return true
@@ -362,11 +377,19 @@ func sortDatesByPreference(available map[string][]model.TimeTeachers, preferredT
 	return keys
 }
 
-func sortSlotsByPreference(slots []model.TimeTeachers, preferredDayTime string, isPreferredDate bool) []model.TimeTeachers {
+func sortSlotsByPreference(slots []model.TimeTeachers, preferredTimes []model.PreferredTime, dateWeekday time.Weekday) []model.TimeTeachers {
 	sorted := make([]model.TimeTeachers, len(slots))
 	copy(sorted, slots)
 
-	if !isPreferredDate {
+	// Собираем предпочитаемые времена для этого дня недели
+	preferredDayTimes := make(map[string]bool)
+	for _, pt := range preferredTimes {
+		if pt.Weekday == dateWeekday {
+			preferredDayTimes[pt.DayTime] = true
+		}
+	}
+
+	if len(preferredDayTimes) == 0 {
 		sort.Slice(sorted, func(i, j int) bool {
 			return sorted[i].Time.Before(sorted[j].Time)
 		})
@@ -375,13 +398,11 @@ func sortSlotsByPreference(slots []model.TimeTeachers, preferredDayTime string, 
 
 	sort.Slice(sorted, func(i, j int) bool {
 		timeI := sorted[i].Time.Format("15:04")
-
 		timeJ := sorted[j].Time.Format("15:04")
 
-		isPreferredI := timeI == preferredDayTime
-		isPreferredJ := timeJ == preferredDayTime
+		isPreferredI := preferredDayTimes[timeI]
+		isPreferredJ := preferredDayTimes[timeJ]
 
-		// Предпочтительное время всегда первое
 		if isPreferredI && !isPreferredJ {
 			return true
 		}
@@ -389,7 +410,6 @@ func sortSlotsByPreference(slots []model.TimeTeachers, preferredDayTime string, 
 			return false
 		}
 
-		// Остальные по времени
 		return sorted[i].Time.Before(sorted[j].Time)
 	})
 

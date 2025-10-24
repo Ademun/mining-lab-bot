@@ -57,9 +57,9 @@ type Subscription struct {
 }
 
 type Notification struct {
-	UserID        int
-	PreferredTime PreferredTime
-	Slot          Slot
+	UserID         int
+	PreferredTimes []PreferredTime
+	Slot           Slot
 }
 
 type PreferredTime struct {

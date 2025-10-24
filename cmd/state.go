@@ -9,7 +9,7 @@ type subscriptionData struct {
 	LabNumber     int
 	LabAuditorium int
 	Weekday       *time.Weekday
-	Daytime       string
+	Daytime       *string
 }
 
 type userState struct {

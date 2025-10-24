@@ -52,18 +52,23 @@ func createUnsubKeyboard(subs []model.Subscription) *models.InlineKeyboardMarkup
 	keyboard := &models.InlineKeyboardMarkup{
 		InlineKeyboard: [][]models.InlineKeyboardButton{},
 	}
-	for idx, sub := range subs {
-		label := fmt.Sprintf("%d. Лаба №%d, ауд. №%d", idx+1, sub.LabNumber,
-			sub.LabAuditorium)
+	for _, sub := range subs {
+		label := fmt.Sprintf("Лаба №%d, ауд. №%d", sub.LabNumber, sub.LabAuditorium)
+		var timeString string
+		if sub.Weekday != nil && sub.DayTime != nil {
+			timeString = fmt.Sprintf(", %s %s", weekDayLocale[int(*sub.Weekday)], timeLessonMap[*sub.DayTime])
+		} else {
+			timeString = ", Любое время"
+		}
+		label += timeString
 		keyboard.InlineKeyboard = append(keyboard.InlineKeyboard,
 			[]models.InlineKeyboardButton{
-				{Text: label, CallbackData: fmt.Sprintf("unsub:view:%s", sub.UUID)},
-				{Text: "❌", CallbackData: fmt.Sprintf("unsub:delete:%s", sub.UUID)},
+				{Text: label, CallbackData: fmt.Sprintf("unsub:delete:%s", sub.UUID)},
 			})
 	}
 	keyboard.InlineKeyboard = append(keyboard.InlineKeyboard,
 		[]models.InlineKeyboardButton{
-			{Text: "🗑️ Удалить все", CallbackData: "unsub:all"},
+			{Text: "❌ Удалить все", CallbackData: "unsub:all"},
 		})
 	return keyboard
 }

@@ -45,7 +45,7 @@ func (s *subscriptionService) Start(ctx context.Context) error {
 func (s *subscriptionService) Subscribe(ctx context.Context, sub model.Subscription) error {
 	err := s.subRepo.Create(ctx, sub)
 	if err != nil {
-		if errors.Is(err, sqlite3.ErrConstraintUnique) {
+		if isDuplicateError(err) {
 			return errs.ErrSubscriptionExists
 		}
 		slog.Error("Failed to create subscription", "sub", sub, "err", err)
@@ -53,6 +53,17 @@ func (s *subscriptionService) Subscribe(ctx context.Context, sub model.Subscript
 	}
 	metrics.Global().RecordSubscriptionResults(1)
 	return nil
+}
+
+func isDuplicateError(err error) bool {
+	var queryErr *errs.ErrQueryExecution
+	if errors.As(err, &queryErr) {
+		var sqliteErr sqlite3.Error
+		if errors.As(queryErr.Err, &sqliteErr) {
+			return errors.Is(sqliteErr.ExtendedCode, sqlite3.ErrConstraintUnique)
+		}
+	}
+	return false
 }
 
 func (s *subscriptionService) Unsubscribe(ctx context.Context, subUUID string) error {
@@ -101,6 +112,5 @@ func (s *subscriptionService) FindSubscriptionsBySlotInfo(ctx context.Context, s
 			res = append(res, sub)
 		}
 	}
-
 	return res, err
 }
