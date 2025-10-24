@@ -66,8 +66,10 @@ func main() {
 
 	<-ctx.Done()
 	slog.Info("Shutting down...")
-	_, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer shutdownCancel()
+
+	pollingService.Stop(ctx)
 
 	if err := db.Close(); err != nil {
 		slog.Error("Fatal error", "error", err)

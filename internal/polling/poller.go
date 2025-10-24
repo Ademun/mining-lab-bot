@@ -24,7 +24,9 @@ func (s *pollingService) pollServerData(ctx context.Context) (chan ServerData, c
 	errChan := make(chan error)
 	var wg sync.WaitGroup
 
+	s.wg.Add(1)
 	go func() {
+		defer s.wg.Done()
 		defer close(errChan)
 		defer close(results)
 

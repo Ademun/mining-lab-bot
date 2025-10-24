@@ -16,7 +16,7 @@ import (
 
 type Service interface {
 	Start(ctx context.Context) error
-	Stop(ctx context.Context) error
+	Stop(ctx context.Context)
 }
 
 type pollingService struct {
@@ -53,7 +53,7 @@ func (s *pollingService) Start(ctx context.Context) error {
 	return nil
 }
 
-func (s *pollingService) Stop(ctx context.Context) error {
+func (s *pollingService) Stop(ctx context.Context) {
 	done := make(chan struct{})
 	go func() {
 		s.wg.Wait()
@@ -63,16 +63,17 @@ func (s *pollingService) Stop(ctx context.Context) error {
 	select {
 	case <-done:
 		slog.Info("Stopped", "service", logger.ServicePolling)
-		return nil
 	case <-ctx.Done():
-		return ctx.Err()
+		slog.Error("Stopped by timeout", "service", logger.ServicePolling)
 	}
 }
 
 func (s *pollingService) startPollingLoop(ctx context.Context) {
 	s.poll(ctx)
 
+	s.wg.Add(1)
 	go func() {
+		defer s.wg.Done()
 		pollRate := s.getPolRate()
 		ticker := time.NewTicker(pollRate)
 		defer ticker.Stop()
@@ -158,7 +159,9 @@ func (s *pollingService) poll(ctx context.Context) {
 func (s *pollingService) startIDUpdateLoop(ctx context.Context) {
 	s.updateIDs(ctx)
 
+	s.wg.Add(1)
 	go func() {
+		defer s.wg.Done()
 		ticker := time.NewTicker(s.options.ServiceIDUpdateRate)
 		defer ticker.Stop()
 		for {
