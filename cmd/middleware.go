@@ -12,8 +12,10 @@ func typingMiddleware(next bot.HandlerFunc) bot.HandlerFunc {
 		var chatID int64
 		if update.Message != nil {
 			chatID = update.Message.Chat.ID
-		} else {
+		} else if update.CallbackQuery != nil {
 			chatID = update.CallbackQuery.Message.Message.Chat.ID
+		} else {
+			return
 		}
 		b.SendChatAction(ctx, &bot.SendChatActionParams{
 			ChatID: chatID,
