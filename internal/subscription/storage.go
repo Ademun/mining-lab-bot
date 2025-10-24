@@ -25,7 +25,7 @@ func NewRepo(db *sqlx.DB) Repo {
 }
 
 func (s *subscriptionRepo) Create(ctx context.Context, sub model.Subscription) error {
-	query := `insert into subscriptions (uuid, user_id, chat_id, lab_number, lab_auditorium, weekday, day_time) values (:uuid, :user_id, :chat_id, :lab_number, :lab_auditorium, :weekday, :day_time)`
+	query := `insert into subscriptions (uuid, user_id, lab_number, lab_auditorium, weekday, day_time) values (:uuid, :user_id, :lab_number, :lab_auditorium, :weekday, :day_time)`
 	_, err := s.db.NamedExecContext(ctx, query, sub)
 	if err != nil {
 		return &errs.ErrQueryExecution{Operation: "Create", Query: query, Err: err}
@@ -50,7 +50,7 @@ func (s *subscriptionRepo) Delete(ctx context.Context, uuid string) (bool, error
 }
 
 func (s *subscriptionRepo) FindByUserID(ctx context.Context, userID int) ([]model.Subscription, error) {
-	query := `select uuid, user_id, chat_id, lab_number, lab_auditorium, weekday, day_time from subscriptions where user_id = ?`
+	query := `select uuid, user_id, lab_number, lab_auditorium, weekday, day_time from subscriptions where user_id = ?`
 	var subs []model.Subscription
 	err := s.db.SelectContext(ctx, &subs, query, userID)
 	if err != nil {
@@ -60,7 +60,7 @@ func (s *subscriptionRepo) FindByUserID(ctx context.Context, userID int) ([]mode
 }
 
 func (s *subscriptionRepo) FindBySlotInfo(ctx context.Context, labNumber, labAuditorium int) ([]model.Subscription, error) {
-	query := `select uuid, user_id, chat_id, lab_number, lab_auditorium, weekday, day_time from subscriptions where lab_number = ? and lab_auditorium = ?`
+	query := `select uuid, user_id, lab_number, lab_auditorium, weekday, day_time from subscriptions where lab_number = ? and lab_auditorium = ?`
 	var subs []model.Subscription
 	err := s.db.SelectContext(ctx, &subs, query, labNumber, labAuditorium)
 	if err != nil {

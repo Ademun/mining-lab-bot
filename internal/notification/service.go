@@ -52,7 +52,6 @@ func (s *notificationService) SendNotification(ctx context.Context, slot model.S
 		}
 		notif := model.Notification{
 			UserID:        sub.UserID,
-			ChatID:        sub.ChatID,
 			PreferredTime: prefTime,
 			Slot:          slot,
 		}
@@ -72,7 +71,6 @@ func (s *notificationService) NotifyNewSubscription(ctx context.Context, sub mod
 	for _, slot := range slots {
 		notif := model.Notification{
 			UserID:        sub.UserID,
-			ChatID:        sub.ChatID,
 			PreferredTime: prefTime,
 			Slot:          slot,
 		}

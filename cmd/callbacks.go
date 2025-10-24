@@ -169,7 +169,6 @@ func (b *telegramBot) callbackConfirmSubHandler(ctx context.Context, api *bot.Bo
 	sub := model.Subscription{
 		UUID:          uuid.New().String(),
 		UserID:        int(userID),
-		ChatID:        int(chatID),
 		LabNumber:     state.Data.LabNumber,
 		LabAuditorium: state.Data.LabAuditorium,
 		Weekday:       state.Data.Weekday,

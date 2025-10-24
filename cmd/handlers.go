@@ -51,7 +51,7 @@ func (b *telegramBot) helpHandler(ctx context.Context, api *bot.Bot, update *mod
 
 func (b *telegramBot) subscribeHandler(ctx context.Context, api *bot.Bot, update *models.Update) {
 	userID := update.Message.From.ID
-	// chatID := update.Message.Chat.ID
+	chatID := update.Message.Chat.ID
 
 	b.stateManager.clear(userID)
 	state := &userState{
@@ -61,7 +61,7 @@ func (b *telegramBot) subscribeHandler(ctx context.Context, api *bot.Bot, update
 	b.stateManager.set(userID, state)
 
 	api.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID:    userID,
+		ChatID:    chatID,
 		Text:      subAskLabNumberMessage(),
 		ParseMode: models.ParseModeHTML,
 	})

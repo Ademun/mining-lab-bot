@@ -50,7 +50,6 @@ func (s Slot) Key() string {
 type Subscription struct {
 	UUID          string        `db:"uuid"`
 	UserID        int           `db:"user_id"`
-	ChatID        int           `db:"chat_id"`
 	LabNumber     int           `db:"lab_number"`
 	LabAuditorium int           `db:"lab_auditorium"`
 	Weekday       *time.Weekday `db:"weekday"`
@@ -59,7 +58,6 @@ type Subscription struct {
 
 type Notification struct {
 	UserID        int
-	ChatID        int
 	PreferredTime PreferredTime
 	Slot          Slot
 }

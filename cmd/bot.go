@@ -60,7 +60,7 @@ func (b *telegramBot) Start(ctx context.Context) {
 }
 
 func (b *telegramBot) SendNotification(ctx context.Context, notif model.Notification) {
-	targetUser := notif.ChatID
+	targetUser := notif.UserID
 
 	hidePreview := true
 	b.api.SendMessage(ctx, &bot.SendMessageParams{
