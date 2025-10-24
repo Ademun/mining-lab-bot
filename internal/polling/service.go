@@ -2,7 +2,6 @@ package polling
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"sync"
@@ -12,6 +11,7 @@ import (
 	"github.com/Ademun/mining-lab-bot/internal/teacher"
 	"github.com/Ademun/mining-lab-bot/pkg/config"
 	"github.com/Ademun/mining-lab-bot/pkg/logger"
+	"github.com/Ademun/mining-lab-bot/pkg/metrics"
 )
 
 type Service interface {
@@ -134,7 +134,7 @@ func (s *pollingService) poll(ctx context.Context) {
 	defer s.wg.Done()
 
 	dataChan, errChan := s.pollServerData(ctx)
-
+	var dataLen, fetchErrs, parseErrs int
 	start := time.Now()
 	for dataChan != nil || errChan != nil {
 		select {
@@ -148,20 +148,25 @@ func (s *pollingService) poll(ctx context.Context) {
 			serviceID := data.Data.ServiceID
 			slots, err := s.ParseServerData(ctx, &data, serviceID)
 			if err != nil {
+				parseErrs++
 				slog.Warn("Parsing error", "error", err, "service", logger.ServicePolling)
 			}
+			dataLen += len(slots)
 			for _, slot := range slots {
 				s.notifService.SendNotification(ctx, slot)
 			}
 		case err, ok := <-errChan:
 			if !ok {
+				fetchErrs++
 				errChan = nil
 				continue
 			}
 			slog.Warn("Polling error", "error", err, "service", logger.ServicePolling)
 		}
 	}
-	fmt.Println("Total", time.Since(start))
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	metrics.Global().RecordPollResults(dataLen, len(s.serviceIDs), parseErrs, fetchErrs, s.GetPollingMode(), time.Since(start))
 }
 
 func (s *pollingService) startIDUpdateLoop(ctx context.Context) {

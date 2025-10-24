@@ -246,11 +246,13 @@ func statsSuccessMessage(snapshot *metrics.Metrics) string {
 	sb.WriteString(fmt.Sprintf("  Ошибки получения: <b>%d</b>",
 		snapshot.PollingMetrics.FetchErrors))
 	sb.WriteString(repeatLineBreaks(1))
-	sb.WriteString(fmt.Sprintf("  Среднее время опроса: <b>%s</b>",
-		snapshot.PollingMetrics.AveragePollingTime.Round(time.Millisecond)))
+	sb.WriteString(fmt.Sprintf("  Последнее время опроса: <b>%s</b>",
+		snapshot.PollingMetrics.LastPollingTime.Round(time.Millisecond)))
 	sb.WriteString(repeatLineBreaks(1))
-	sb.WriteString(fmt.Sprintf("  Среднее количество слотов: <b>%d</b>",
-		snapshot.PollingMetrics.AverageSlotNumber))
+	sb.WriteString(fmt.Sprintf("  Количество слотов: <b>%d</b>",
+		snapshot.PollingMetrics.LastSlotNumber))
+	sb.WriteString(repeatLineBreaks(1))
+	sb.WriteString(fmt.Sprintf("	 Количество айдишников сервиса <b>%d</b>", snapshot.PollingMetrics.LastIDNumber))
 	sb.WriteString(repeatLineBreaks(2))
 	sb.WriteString("<b>🔔 Уведомления:</b>")
 	sb.WriteString(repeatLineBreaks(1))
@@ -259,9 +261,6 @@ func statsSuccessMessage(snapshot *metrics.Metrics) string {
 	sb.WriteString(repeatLineBreaks(1))
 	sb.WriteString(fmt.Sprintf("  Размер кеша: <b>%d</b>",
 		snapshot.NotificationMetrics.CacheLength))
-	sb.WriteString(repeatLineBreaks(1))
-	sb.WriteString(fmt.Sprintf("  Среднее количество уведомлений: <b>%d</b>",
-		snapshot.NotificationMetrics.AverageNotifications))
 	sb.WriteString(repeatLineBreaks(2))
 	sb.WriteString("<b>📝 Подписки:</b>")
 	sb.WriteString(repeatLineBreaks(1))

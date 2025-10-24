@@ -9,6 +9,7 @@ import (
 	"github.com/Ademun/mining-lab-bot/internal/subscription"
 	"github.com/Ademun/mining-lab-bot/pkg/cache"
 	"github.com/Ademun/mining-lab-bot/pkg/logger"
+	"github.com/Ademun/mining-lab-bot/pkg/metrics"
 	"github.com/Ademun/mining-lab-bot/pkg/model"
 	"github.com/Ademun/mining-lab-bot/pkg/notifier"
 )
@@ -61,6 +62,7 @@ func (s *notificationService) SendNotification(ctx context.Context, slot model.S
 		}
 		s.notifier.SendNotification(ctx, notif)
 	}
+	metrics.Global().RecordNotificationResults(len(userIDsMap), len(s.cache.List()))
 
 	slog.Info("Finished sending notifications", "total", len(subs), "slot", slot, "service", logger.ServiceNotification)
 }
@@ -77,6 +79,7 @@ func (s *notificationService) NotifyNewSubscription(ctx context.Context, sub mod
 		}
 		s.notifier.SendNotification(ctx, notif)
 	}
+	metrics.Global().RecordNotificationResults(len(slots), len(s.cache.List()))
 
 	slog.Info("Finished sending notifications", "total", len(slots), "sub", sub, "service", logger.ServiceNotification)
 }
