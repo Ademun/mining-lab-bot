@@ -12,6 +12,7 @@ import (
 	"github.com/Ademun/mining-lab-bot/pkg/metrics"
 	"github.com/Ademun/mining-lab-bot/pkg/model"
 	"github.com/Ademun/mining-lab-bot/pkg/notifier"
+	"golang.org/x/time/rate"
 )
 
 type Service interface {
@@ -54,12 +55,15 @@ func (s *notificationService) SendNotification(ctx context.Context, slot model.S
 		}
 		userIDsMap[sub.UserID] = struct{}{}
 	}
+
+	limiter := rate.NewLimiter(25, 1)
 	for userID := range userIDsMap {
 		notif := model.Notification{
 			UserID:         userID,
 			PreferredTimes: prefTimes[userID],
 			Slot:           slot,
 		}
+		limiter.Wait(ctx)
 		s.notifier.SendNotification(ctx, notif)
 	}
 	metrics.Global().RecordNotificationResults(len(userIDsMap), len(s.cache.List()))
