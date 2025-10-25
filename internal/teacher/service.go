@@ -77,7 +77,7 @@ func (s *teacherService) FindTeachersForTime(ctx context.Context, targetTime tim
 	return res
 }
 
-func (s *teacherService) calculateWeekNumber(targetTime time.Time) {
+func (s *teacherService) calculateWeekNumber(targetTime time.Time) int {
 	now := time.Now()
 	currentWeekStart := getMonday(now)
 	targetWeekStart := getMonday(targetTime)
