@@ -84,7 +84,7 @@ func (s *teacherService) calculateWeekNumber(targetTime time.Time) int {
 
 	weekDiff := int(targetWeekStart.Sub(currentWeekStart).Hours() / (24 * 7))
 
-	if weeksDiff % 2 == 0 {
+	if weekDiff % 2 == 0 {
 		return s.weekNumber
 	}
 
@@ -95,7 +95,7 @@ func (s *teacherService) calculateWeekNumber(targetTime time.Time) int {
 }
 
 func getMonday(t time.Time) time.Time {
-	weekday = int(t.Weekday())
+	weekday := int(t.Weekday())
 	if weekday == 0 {
 		weekday = 7
 	}
