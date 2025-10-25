@@ -103,7 +103,7 @@ func getMonday(t time.Time) time.Time {
 	daysToSubtract := weekday-1
 	monday := t.AddDate(0, 0, -daysToSubtract)
 
-	return time.Date(monday.Year(), monday.Month(), monday.Day(), 0, 0, 0, 0, monday.Location()
+	return time.Date(monday.Year(), monday.Month(), monday.Day(), 0, 0, 0, 0, monday.Location())
 }
 
 func timeToMinutes(h, m int) int {
