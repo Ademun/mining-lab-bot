@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/Ademun/mining-lab-bot/internal/polling"
 	"github.com/Ademun/mining-lab-bot/internal/subscription"
 	"github.com/Ademun/mining-lab-bot/pkg/cache"
 	"github.com/Ademun/mining-lab-bot/pkg/logger"
@@ -16,7 +17,7 @@ import (
 )
 
 type Service interface {
-	SendNotification(ctx context.Context, slot model.Slot)
+	SendNotification(ctx context.Context, slot polling.Slot)
 	NotifyNewSubscription(ctx context.Context, sub model.Subscription)
 }
 
@@ -34,7 +35,7 @@ func New(subService subscription.Service, notifier notifier.SlotNotifier) Servic
 	}
 }
 
-func (s *notificationService) SendNotification(ctx context.Context, slot model.Slot) {
+func (s *notificationService) SendNotification(ctx context.Context, slot polling.Slot) {
 	_, exists := s.cache.Get(slot.Key())
 	s.cache.Set(slot.Key(), slot)
 

@@ -7,12 +7,16 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Ademun/mining-lab-bot/internal/notification"
 	"github.com/Ademun/mining-lab-bot/internal/teacher"
 	"github.com/Ademun/mining-lab-bot/pkg/config"
 	"github.com/Ademun/mining-lab-bot/pkg/logger"
 	"github.com/Ademun/mining-lab-bot/pkg/metrics"
+	"golang.org/x/time/rate"
 )
+
+type Notifier interface {
+	SendNotification(ctx context.Context, slot Slot)
+}
 
 type Service interface {
 	Start(ctx context.Context) error
@@ -20,26 +24,28 @@ type Service interface {
 }
 
 type pollingService struct {
-	notifService   notification.Service
-	teacherService teacher.Service
-	options        config.PollingConfig
-	serviceIDs     []int
-	httpClient     *http.Client
-	wg             sync.WaitGroup
-	mu             sync.RWMutex
+	notifier         Notifier
+	teacherService   teacher.Service
+	options          config.PollingConfig
+	serviceIDs       []int
+	httpClient       http.Client
+	fetchRateLimiter *rate.Limiter
+	wg               sync.WaitGroup
+	mu               sync.RWMutex
 }
 
-func New(notifService notification.Service, teacherService teacher.Service, opts *config.PollingConfig) Service {
+func New(notifier Notifier, teacherService teacher.Service, opts *config.PollingConfig) Service {
 	return &pollingService{
-		notifService:   notifService,
+		notifier:       notifier,
 		teacherService: teacherService,
 		options:        *opts,
 		serviceIDs:     make([]int, 0),
-		httpClient: &http.Client{
+		httpClient: http.Client{
 			Timeout: time.Second * 30,
 		},
-		wg: sync.WaitGroup{},
-		mu: sync.RWMutex{},
+		fetchRateLimiter: rate.NewLimiter(rate.Every(opts.GetFetchRate()), 1),
+		wg:               sync.WaitGroup{},
+		mu:               sync.RWMutex{},
 	}
 }
 
@@ -103,23 +109,12 @@ func (s *pollingService) getPolRate() time.Duration {
 	return s.options.NormalPollRate
 }
 
-func (s *pollingService) getFetchRate() time.Duration {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	switch s.options.Mode {
-	case config.ModeNormal:
-		return s.options.NormalFetchRate
-	case config.ModeAggressive:
-		return s.options.AggressiveFetchRate
-	}
-	slog.Warn("Unknown service mode", "mode", s.options.Mode, "service", logger.ServicePolling)
-	return s.options.NormalFetchRate
-}
-
 func (s *pollingService) poll(ctx context.Context) {
 	s.wg.Add(1)
 	defer s.wg.Done()
 
+	wg := sync.WaitGroup{}
+	sem := make(chan struct{}, 100)
 	dataChan, errChan := s.pollServerData(ctx)
 	var dataLen, fetchErrs, parseErrs int
 	start := time.Now()
@@ -132,15 +127,20 @@ func (s *pollingService) poll(ctx context.Context) {
 				dataChan = nil
 				continue
 			}
-			serviceID := data.Data.ServiceID
-			slots, err := s.ParseServerData(ctx, &data, serviceID)
+			slots, err := s.ParseServerData(ctx, &data, data.Data.ServiceID)
 			if err != nil {
 				parseErrs++
 				slog.Warn("Parsing error", "error", err, "service", logger.ServicePolling)
 			}
 			dataLen += len(slots)
 			for _, slot := range slots {
-				s.notifService.SendNotification(ctx, slot)
+				sem <- struct{}{}
+				wg.Add(1)
+				go func(slot Slot) {
+					defer wg.Done()
+					s.notifier.SendNotification(ctx, slot)
+					<-sem
+				}(slot)
 			}
 		case err, ok := <-errChan:
 			if !ok {
@@ -151,6 +151,7 @@ func (s *pollingService) poll(ctx context.Context) {
 			slog.Warn("Polling error", "error", err, "service", logger.ServicePolling)
 		}
 	}
+	wg.Wait()
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	metrics.Global().RecordPollResults(dataLen, len(s.serviceIDs), parseErrs, fetchErrs, s.options.Mode, time.Since(start))
@@ -181,7 +182,7 @@ func (s *pollingService) updateIDs(ctx context.Context) {
 
 	ids, err := s.fetchServiceIDs(ctx)
 	if err != nil {
-		slog.Error("Failed to fetch service IDs", "error", err, "service", logger.ServicePolling)
+		slog.Warn("Failed to fetch service IDs", "error", err, "service", logger.ServicePolling)
 		return
 	}
 
