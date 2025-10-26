@@ -57,7 +57,7 @@ func (s *teacherService) Stop(ctx context.Context) {
 }
 
 func (s *teacherService) FindTeachersForTime(ctx context.Context, targetTime time.Time, auditorium int) []model.Teacher {
-	teachers, err := s.teacherRepo.FindByWeekNumberWeekdayAuditorium(ctx, 2, targetTime.Weekday(), auditorium)
+	teachers, err := s.teacherRepo.FindByWeekNumberWeekdayAuditorium(ctx, s.calculateWeekNumber(targetTime), targetTime.Weekday(), auditorium)
 	if err != nil {
 		slog.Error("Failed to find teachers", "error", err, "service", logger.ServiceTeacher)
 	}
@@ -75,6 +75,35 @@ func (s *teacherService) FindTeachersForTime(ctx context.Context, targetTime tim
 	}
 
 	return res
+}
+
+func (s *teacherService) calculateWeekNumber(targetTime time.Time) int {
+	now := time.Now()
+	currentWeekStart := getMonday(now)
+	targetWeekStart := getMonday(targetTime)
+
+	weekDiff := int(targetWeekStart.Sub(currentWeekStart).Hours() / (24 * 7))
+
+	if weekDiff % 2 == 0 {
+		return s.weekNumber
+	}
+
+	if s.weekNumber == 1 {
+		return 2
+	}
+	return 1
+}
+
+func getMonday(t time.Time) time.Time {
+	weekday := int(t.Weekday())
+	if weekday == 0 {
+		weekday = 7
+	}
+
+	daysToSubtract := weekday-1
+	monday := t.AddDate(0, 0, -daysToSubtract)
+
+	return time.Date(monday.Year(), monday.Month(), monday.Day(), 0, 0, 0, 0, monday.Location())
 }
 
 func timeToMinutes(h, m int) int {
