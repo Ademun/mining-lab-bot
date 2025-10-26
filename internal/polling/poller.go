@@ -3,14 +3,10 @@ package polling
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"net/url"
 	"sync"
-
-	"golang.org/x/time/rate"
 )
 
 func (s *pollingService) pollServerData(ctx context.Context) (chan ServerData, chan error) {
@@ -18,11 +14,7 @@ func (s *pollingService) pollServerData(ctx context.Context) (chan ServerData, c
 	defer s.mu.RUnlock()
 
 	results := make(chan ServerData)
-
-	fetchRate := s.getFetchRate()
-	limiter := rate.NewLimiter(rate.Every(fetchRate), 1)
 	errChan := make(chan error)
-	var wg sync.WaitGroup
 
 	s.wg.Add(1)
 	go func() {
@@ -30,77 +22,22 @@ func (s *pollingService) pollServerData(ctx context.Context) (chan ServerData, c
 		defer close(errChan)
 		defer close(results)
 
+		wg := sync.WaitGroup{}
+
 		for _, serviceID := range s.serviceIDs {
 			wg.Add(1)
 			serviceID := serviceID
 			go func() {
-				defer wg.Done()
-				if err := limiter.Wait(ctx); err != nil {
-					select {
-					case errChan <- err:
-					case <-ctx.Done():
-					}
-					return
-				}
-				if ctx.Err() != nil {
-					return
-				}
-				initialData, err := s.fetchServerData(ctx, serviceID, nil)
+				result, err := s.processSingleService(ctx, serviceID)
 				if err != nil {
 					select {
 					case errChan <- err:
 					case <-ctx.Done():
 					}
-					return
-				}
-				initialData.Data.ServiceID = serviceID
-				dates := initialData.Data.DatesTrue
-				if len(dates) == 0 {
-					select {
-					case results <- *initialData:
-						return
-					case <-ctx.Done():
-						return
-					}
-				}
-				// API includes data of the first date, so we can skip it
-				dates = dates[1:]
-				for _, date := range dates {
-					if ctx.Err() != nil {
-						return
-					}
-					if err := limiter.Wait(ctx); err != nil {
-						select {
-						case errChan <- err:
-						case <-ctx.Done():
-						}
-						return
-					}
-					newData, err := s.fetchServerData(ctx, serviceID, &date)
-					if err != nil {
-						select {
-						case errChan <- err:
-						case <-ctx.Done():
-						}
-						return
-					}
-					for k, v := range newData.Data.Masters {
-						initialData.Data.Masters[k] = v
-					}
-					for k, v := range newData.Data.Times {
-						if _, exists := initialData.Data.Times[k]; !exists {
-							initialData.Data.Times[k] = v
-							continue
-						}
-						initialData.Data.Times[k] = append(initialData.Data.Times[k], newData.Data.Times[k]...)
-					}
-					newData.Data.ServiceID = serviceID
 				}
 				select {
-				case results <- *initialData:
-					return
+				case results <- *result:
 				case <-ctx.Done():
-					return
 				}
 			}()
 		}
@@ -108,6 +45,47 @@ func (s *pollingService) pollServerData(ctx context.Context) (chan ServerData, c
 	}()
 
 	return results, errChan
+}
+
+// The initial request retrieves a list of dates, which is used to request all available slots for the serviceID
+func (s *pollingService) processSingleService(ctx context.Context, serviceID int) (*ServerData, error) {
+	initialData, err := s.fetchServerData(ctx, serviceID, nil)
+	if err != nil {
+		return nil, err
+	}
+	initialData.Data.ServiceID = serviceID
+
+	dates := initialData.Data.DatesTrue
+	if len(dates) == 0 {
+		return initialData, nil
+	}
+
+	// API includes data of the first date, so we can skip it
+	for _, date := range dates[1:] {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
+		newData, err := s.fetchServerData(ctx, serviceID, &date)
+		if err != nil {
+			return nil, err
+		}
+
+		for k, v := range newData.Data.Masters {
+			initialData.Data.Masters[k] = v
+		}
+		for k, v := range newData.Data.Times {
+			if existing, exists := initialData.Data.Times[k]; exists {
+				initialData.Data.Times[k] = append(existing, v...)
+			} else {
+				initialData.Data.Times[k] = v
+			}
+		}
+	}
+
+	return initialData, nil
 }
 
 func (s *pollingService) fetchServerData(ctx context.Context, serviceID int, date *string) (*ServerData, error) {
@@ -122,26 +100,15 @@ func (s *pollingService) fetchServerData(ctx context.Context, serviceID int, dat
 	q.Set("service_id[]", fmt.Sprintf("%d", serviceID))
 	u.RawQuery = q.Encode()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	res, err := s.fetchData(ctx, u.String())
 	if err != nil {
-		return nil, &ErrFetch{url: u.String(), err: err, msg: "Failed to create request"}
+		return nil, err
 	}
 
-	res, err := s.httpClient.Do(req)
-	if err != nil {
-		return nil, &ErrFetch{url: u.String(), err: err, msg: "Failed to fetch document"}
-	}
-
-	defer res.Body.Close()
-
-	if res.StatusCode != 200 {
-		return nil, &ErrFetch{url: u.String(), err: errors.New("bad status code"), msg: fmt.Sprintf("Expected 200 but got %d", res.StatusCode)}
-	}
-
-	return unmarshalServiceData(res.Body, serviceID)
+	return unmarshalServerData(res.Body, serviceID)
 }
 
-func unmarshalServiceData(serverData io.ReadCloser, serviceID int) (*ServerData, error) {
+func unmarshalServerData(serverData io.ReadCloser, serviceID int) (*ServerData, error) {
 	var data ServerData
 	if err := json.NewDecoder(serverData).Decode(&data); err != nil {
 		return nil, &ErrParseData{msg: fmt.Sprintf("serviceID: %d", serviceID), err: err}
