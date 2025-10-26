@@ -3,8 +3,12 @@ polling:
   mode: "normal"
   service_id_update_rate: 24h
   normal_poll_rate: 1m30s
-  aggressive_poll_rate: 30s
+  aggressive_poll_rate: 45s
   normal_fetch_rate: 1s
-  aggressive_fetch_rate: 250ms
+  aggressive_fetch_rate: 500ms
+  min_fetch_rate: 10s
+  max_fetch_rate: 250ms
+  backoff_factor: 2.0
+  recovery_factor: 1.2
 teacher:
   staring_week: 2

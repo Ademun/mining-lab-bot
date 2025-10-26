@@ -24,6 +24,24 @@ type PollingConfig struct {
 	AggressivePollRate  time.Duration `yaml:"aggressive_poll_rate"`
 	NormalFetchRate     time.Duration `yaml:"normal_fetch_rate"`
 	AggressiveFetchRate time.Duration `yaml:"aggressive_fetch_rate"`
+	MinFetchRate        time.Duration `yaml:"min_fetch_rate"`
+	MaxFetchRate        time.Duration `yaml:"max_fetch_rate"`
+	BackoffFactor       float64       `yaml:"backoff_factor"`
+	RecoveryFactor      float64       `yaml:"recovery_factor"`
+}
+
+func (s *PollingConfig) GetFetchRate() time.Duration {
+	if s.Mode == ModeAggressive {
+		return s.AggressiveFetchRate
+	}
+	return s.NormalFetchRate
+}
+
+func (s *PollingConfig) SetFetchRate(rate time.Duration) {
+	if s.Mode == ModeAggressive {
+		s.AggressiveFetchRate = rate
+	}
+	s.NormalFetchRate = rate
 }
 
 type PollingMode string
