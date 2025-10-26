@@ -3,7 +3,39 @@ package polling
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 )
+
+// Модель записи на лабораторную работу
+// ======================================================
+
+type Domain int
+
+const (
+	DomainElectricity Domain = iota
+	DomainMechanics
+	DomainVirtual
+)
+
+type LabType int
+
+const (
+	LabTypePerformance LabType = iota
+	LabTypeDefence
+)
+
+type Slot struct {
+	Name          string
+	Number        int
+	Auditorium    int
+	Order         int // 0 if no order
+	Domain        Domain
+	Type          LabType
+	TimesTeachers map[time.Time][]string
+	URL           string
+}
+
+// ======================================================
 
 // Структура HTML документа для извлечения айди сервисов
 // ======================================================

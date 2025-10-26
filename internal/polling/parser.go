@@ -7,38 +7,34 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/Ademun/mining-lab-bot/pkg/model"
 )
 
 var (
-	numRe   = regexp.MustCompile(`№\s*(\d+)`)
-	audRe   = regexp.MustCompile(`\((\d+)\s*\p{L}+\.\)`)
-	orderRe = regexp.MustCompile(`\((\d+)-?\p{L}*\s*место\)`)
+	numRe      = regexp.MustCompile(`№\s*(\d+)`)
+	audRe      = regexp.MustCompile(`\((\d+)\s*\p{L}+\.\)`)
+	orderRe    = regexp.MustCompile(`\((\d+)-?\p{L}*\s*место\)`)
+	domainRe   = regexp.MustCompile(`\b(Электричество|Механика|Виртуальная\s*лаб\.?)\b`)
+	typePrefix = "Аудиторная"
 )
 
-func (s *pollingService) ParseServerData(ctx context.Context, data *ServerData, serviceID int) ([]model.Slot, error) {
+func (s *pollingService) ParseServerData(ctx context.Context, data *ServerData, serviceID int) ([]Slot, error) {
 	dataMasters := data.Data.Masters
 	if len(dataMasters) == 0 {
 		return nil, nil
 	}
 
-	dataTimes := data.Data.Times
-
-	slots := make([]model.Slot, 0, len(dataMasters))
-
+	slots := make([]Slot, 0, len(dataMasters))
 	errs := make([]error, 0)
+
 	for id, master := range dataMasters {
-		slot, err := parseLabName(master.Username, master.ServiceName)
+		slot, err := parseSlotInfo(master.Username, master.ServiceName)
 		if err != nil {
 			errs = append(errs, err)
 			continue
 		}
 
-		// TODO: Implement correct Defence detection when new slots are opened in November
-		labType := model.LabPerformance
-
-		available := make([]model.TimeTeachers, 0)
+		dataTimes := data.Data.Times
+		timesTeachers := make(map[time.Time][]string, len(dataTimes))
 		for _, timeString := range dataTimes[id] {
 			timestamp, err := parseTimeString(timeString)
 			if err != nil {
@@ -48,16 +44,15 @@ func (s *pollingService) ParseServerData(ctx context.Context, data *ServerData, 
 				})
 				continue
 			}
-			teachers := s.teacherService.FindTeachersForTime(ctx, timestamp, slot.LabAuditorium)
-			available = append(available, model.TimeTeachers{
-				Time:     timestamp,
-				Teachers: teachers,
-			})
+			teachers := s.teacherService.FindTeachersForTime(ctx, timestamp, slot.Auditorium)
+			teacherNames := make([]string, 0, len(teachers))
+			for _, teacher := range teachers {
+				teacherNames = append(teacherNames, teacher.Name)
+			}
+			timesTeachers[timestamp.Round(0)] = teacherNames
 		}
 
-		slot.ID = id
-		slot.LabType = labType
-		slot.Available = available
+		slot.TimesTeachers = timesTeachers
 		slot.URL = buildURL(serviceID)
 
 		slots = append(slots, *slot)
@@ -70,38 +65,45 @@ func (s *pollingService) ParseServerData(ctx context.Context, data *ServerData, 
 	return slots, nil
 }
 
-func parseLabName(username, serviceName string) (*model.Slot, error) {
-	labNumber, err := parseLabNumber(username, serviceName)
+func parseSlotInfo(username, serviceName string) (*Slot, error) {
+	number, err := parseNumber(username, serviceName)
 	if err != nil {
 		return nil, err
 	}
-
-	labAuditorium, err := parseLabAuditorium(username, serviceName)
+	auditorium, err := parseAuditorium(username, serviceName)
 	if err != nil {
 		return nil, err
 	}
-
-	labOrder, err := parseLabOrder(username, serviceName)
+	order, err := parseOrder(username, serviceName)
 	if err != nil {
-		labOrder = 0
+		return nil, err
 	}
+	domain := parseDomain(serviceName)
+	labType := parseType(username)
 
-	labName := username
-	labName = numRe.ReplaceAllString(labName, "")
-	labName = audRe.ReplaceAllString(labName, "")
-	labName = orderRe.ReplaceAllString(labName, "")
-	labName = strings.TrimPrefix(labName, "Лабораторная работа")
-	labName = strings.TrimSpace(labName)
+	name := parseName(username)
 
-	return &model.Slot{
-		LabName:       labName,
-		LabNumber:     labNumber,
-		LabAuditorium: labAuditorium,
-		LabOrder:      labOrder,
-	}, nil
+	return &Slot{
+			Name:       name,
+			Number:     number,
+			Auditorium: auditorium,
+			Order:      order,
+			Domain:     domain,
+			Type:       labType,
+		},
+		nil
 }
 
-func parseLabNumber(username string, serviceName string) (int, error) {
+func parseName(username string) string {
+	name := numRe.ReplaceAllString(username, "")
+	name = audRe.ReplaceAllString(name, "")
+	name = orderRe.ReplaceAllString(name, "")
+	name = strings.TrimPrefix(name, "Лабораторная работа")
+	name = strings.TrimSpace(name)
+	return strings.Join(strings.Fields(name), " ")
+}
+
+func parseNumber(username string, serviceName string) (int, error) {
 	if match := numRe.FindStringSubmatch(username); match != nil {
 		labNum, _ := strconv.Atoi(match[1])
 		return labNum, nil
@@ -112,7 +114,7 @@ func parseLabNumber(username string, serviceName string) (int, error) {
 	return 0, &ErrParseData{data: username + " " + serviceName, msg: "lab number not found", err: errors.New("invalid lab name format")}
 }
 
-func parseLabAuditorium(username string, serviceName string) (int, error) {
+func parseAuditorium(username string, serviceName string) (int, error) {
 	if match := audRe.FindStringSubmatch(username); match != nil {
 		labAud, _ := strconv.Atoi(match[1])
 		return labAud, nil
@@ -123,7 +125,7 @@ func parseLabAuditorium(username string, serviceName string) (int, error) {
 	return 0, &ErrParseData{data: username + " " + serviceName, msg: "lab auditorium not found", err: errors.New("invalid lab name format")}
 }
 
-func parseLabOrder(username string, serviceName string) (int, error) {
+func parseOrder(username string, serviceName string) (int, error) {
 	if match := orderRe.FindStringSubmatch(username); match != nil {
 		labOrder, _ := strconv.Atoi(match[1])
 		return labOrder, nil
@@ -132,6 +134,27 @@ func parseLabOrder(username string, serviceName string) (int, error) {
 		return labOrder, nil
 	}
 	return 0, &ErrParseData{data: username + " " + serviceName, msg: "lab order not found", err: errors.New("invalid lab name format")}
+}
+
+func parseDomain(serviceName string) Domain {
+	if match := domainRe.FindStringSubmatch(serviceName); match != nil {
+		switch match[1] {
+		case "Электричество":
+			return DomainElectricity
+		case "Механика":
+			return DomainMechanics
+		case "Виртуальная лаб.":
+			return DomainVirtual
+		}
+	}
+	return DomainVirtual
+}
+
+func parseType(username string) LabType {
+	if strings.Contains(username, typePrefix) {
+		return LabTypeDefence
+	}
+	return LabTypePerformance
 }
 
 func parseTimeString(timeString string) (time.Time, error) {
