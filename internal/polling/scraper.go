@@ -4,14 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"net/http"
 
 	"github.com/PuerkitoBio/goquery"
 )
 
 func (s *pollingService) fetchServiceIDs(ctx context.Context) ([]int, error) {
-	doc, err := s.fetchDocument(ctx, s.options.ServiceURL)
+	doc, err := s.fetchDocument(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -44,27 +42,15 @@ func (s *pollingService) fetchServiceIDs(ctx context.Context) ([]int, error) {
 	return serviceIDs, nil
 }
 
-func (s *pollingService) fetchDocument(ctx context.Context, url string) (*goquery.Document, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+func (s *pollingService) fetchDocument(ctx context.Context) (*goquery.Document, error) {
+	res, err := s.fetchData(ctx, s.options.ServiceURL)
 	if err != nil {
-		return nil, &ErrFetch{url: url, err: err, msg: "Failed to create request"}
-	}
-
-	res, err := s.httpClient.Do(req)
-	if err != nil {
-		return nil, &ErrFetch{url: url, err: err, msg: "Failed to fetch document"}
-	}
-
-	defer res.Body.Close()
-
-	if res.StatusCode != 200 {
-		return nil, &ErrFetch{url: url, err: errors.New("bad status code"), msg: fmt.Sprintf("Expected 200 but got %d", res.StatusCode)}
+		return nil, err
 	}
 
 	doc, err := goquery.NewDocumentFromReader(res.Body)
 	if err != nil {
-		return nil, &ErrFetch{url: url, err: err, msg: "Failed to parse document"}
+		return nil, &ErrParseData{msg: "failed to parse id list document", err: err}
 	}
-
 	return doc, nil
 }
