@@ -1,6 +1,6 @@
 polling:
   service_url: "https://dikidi.net/550001?p=1.pi-ssm"
-  mode: "aggressive"
+  mode: "normal"
   service_id_update_rate: 24h
   normal_poll_rate: 1m30s
   aggressive_poll_rate: 30s
