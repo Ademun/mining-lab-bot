@@ -1,6 +1,9 @@
 package polling
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -33,6 +36,17 @@ type Slot struct {
 	Type          LabType
 	TimesTeachers map[time.Time][]string
 	URL           string
+}
+
+func (s Slot) Key() string {
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+	err := enc.Encode(s)
+	if err != nil {
+		panic(err)
+	}
+	hash := sha256.Sum256(buf.Bytes())
+	return fmt.Sprintf("%x", hash)
 }
 
 // ======================================================
