@@ -27,7 +27,7 @@ type ResponseSubscription struct {
 	LabNumber      int
 	LabAuditorium  *int
 	LabDomain      *polling.Domain
-	Weekday        *string
+	Weekday        *int
 	PreferredTimes []TimeRange
 }
 
@@ -38,7 +38,7 @@ type DBSubscription struct {
 	LabNumber     int             `db:"lab_number"`
 	LabAuditorium *int            `db:"lab_auditorium"`
 	LabDomain     *polling.Domain `db:"lab_domain"`
-	Weekday       *string         `db:"weekday"`
+	Weekday       *int            `db:"weekday"`
 }
 
 type DBSubscriptionTimes struct {
@@ -73,7 +73,7 @@ type RequestSubscription struct {
 	LabNumber     int
 	LabAuditorium *int
 	LabDomain     *polling.Domain
-	Weekday       *string
+	Weekday       *int
 	Lessons       []int
 }
 
@@ -90,8 +90,9 @@ func (rs RequestSubscription) toDBModels() (DBSubscription, []DBSubscriptionTime
 	dbTimes := make([]DBSubscriptionTimes, len(rs.Lessons))
 	for idx, timeRange := range lessonsToTimeRanges(rs.Lessons...) {
 		dbTimes[idx] = DBSubscriptionTimes{
-			TimeStart: timeRange.TimeStart,
-			TimeEnd:   timeRange.TimeEnd,
+			SubscriptionUUID: dbSub.UUID,
+			TimeStart:        timeRange.TimeStart,
+			TimeEnd:          timeRange.TimeEnd,
 		}
 	}
 	return dbSub, dbTimes

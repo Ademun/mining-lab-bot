@@ -9,35 +9,33 @@ import (
 )
 
 type SubFilters struct {
-	UserID        *int
-	Type          *polling.LabType
-	LabNumber     *int
-	LabAuditorium *int
+	UserID        int
+	Type          polling.LabType
+	LabNumber     int
+	LabAuditorium int
 	LabDomain     *polling.Domain
-	Weekday       *string
+	Weekdays      []int
 }
 
 func (f *SubFilters) buildQuery() (string, []interface{}, error) {
 	q := squirrel.Select("*").From("subscriptions")
 	conditions := squirrel.And{}
 
-	if f.UserID != nil {
-		conditions = append(conditions, squirrel.Eq{"user_id": *f.UserID})
+	if f.UserID != 0 {
+		conditions = append(conditions, squirrel.Eq{"user_id": f.UserID})
 	}
-	if f.Type != nil {
-		conditions = append(conditions, squirrel.Eq{"type": *f.Type})
+	conditions = append(conditions, squirrel.Eq{"type": f.Type})
+	if f.LabNumber != 0 {
+		conditions = append(conditions, squirrel.Eq{"lab_number": f.LabNumber})
 	}
-	if f.LabNumber != nil {
-		conditions = append(conditions, squirrel.Eq{"lab_number": *f.LabNumber})
-	}
-	if f.LabAuditorium != nil {
-		conditions = append(conditions, squirrel.Eq{"lab_auditorium": *f.LabAuditorium})
+	if f.LabAuditorium != 0 {
+		conditions = append(conditions, squirrel.Eq{"lab_auditorium": f.LabAuditorium})
 	}
 	if f.LabDomain != nil {
-		conditions = append(conditions, squirrel.Eq{"lab_domain": *f.LabDomain})
+		conditions = append(conditions, squirrel.Eq{"lab_domain": f.LabDomain})
 	}
-	if f.Weekday != nil {
-		conditions = append(conditions, squirrel.Eq{"weekday": *f.Weekday})
+	if len(f.Weekdays) > 0 {
+		conditions = append(conditions, squirrel.Eq{"weekday": f.Weekdays})
 	}
 	if len(conditions) > 0 {
 		q = q.Where(conditions)
@@ -55,7 +53,7 @@ func (f *TimeFilters) buildQuery() (string, []interface{}, error) {
 	q := squirrel.Select("*").From("subscriptions_times")
 	conditions := squirrel.And{}
 
-	if f.SubUUIDs != nil {
+	if len(f.SubUUIDs) > 0 {
 		conditions = append(conditions, squirrel.Eq{"subscription_uuid": f.SubUUIDs})
 	}
 	if len(f.Includes) > 0 {

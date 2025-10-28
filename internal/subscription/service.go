@@ -3,22 +3,21 @@ package subscription
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 
+	"github.com/Ademun/mining-lab-bot/internal/polling"
 	"github.com/Ademun/mining-lab-bot/pkg/errs"
 	"github.com/Ademun/mining-lab-bot/pkg/logger"
 	"github.com/Ademun/mining-lab-bot/pkg/metrics"
-	"github.com/Ademun/mining-lab-bot/pkg/model"
 	"github.com/mattn/go-sqlite3"
 )
 
 type Service interface {
 	Start(ctx context.Context) error
-	Subscribe(ctx context.Context, sub model.Subscription) error
+	Subscribe(ctx context.Context, sub RequestSubscription) error
 	Unsubscribe(ctx context.Context, subUUID string) error
-	FindSubscriptionsByUserID(ctx context.Context, chatID int) ([]model.Subscription, error)
-	FindSubscriptionsBySlotInfo(ctx context.Context, slot model.Slot) ([]model.Subscription, error)
+	FindSubscriptionsByUserID(ctx context.Context, chatID int) ([]ResponseSubscription, error)
+	FindSubscriptionsBySlotInfo(ctx context.Context, slot polling.Slot) ([]ResponseSubscription, error)
 }
 
 type subscriptionService struct {
@@ -42,7 +41,7 @@ func (s *subscriptionService) Start(ctx context.Context) error {
 	return nil
 }
 
-func (s *subscriptionService) Subscribe(ctx context.Context, sub model.Subscription) error {
+func (s *subscriptionService) Subscribe(ctx context.Context, sub RequestSubscription) error {
 	err := s.subRepo.Create(ctx, sub)
 	if err != nil {
 		if isDuplicateError(err) {
@@ -79,8 +78,9 @@ func (s *subscriptionService) Unsubscribe(ctx context.Context, subUUID string) e
 	return err
 }
 
-func (s *subscriptionService) FindSubscriptionsByUserID(ctx context.Context, userID int) ([]model.Subscription, error) {
-	subs, err := s.subRepo.FindByUserID(ctx, userID)
+func (s *subscriptionService) FindSubscriptionsByUserID(ctx context.Context, userID int) ([]ResponseSubscription, error) {
+	subFilters, timeFilters := SubFilters{UserID: userID}, TimeFilters{}
+	subs, err := s.subRepo.Find(ctx, subFilters, timeFilters)
 	if err != nil {
 		slog.Error("Failed to find subscriptions", "userID", userID, "err", err)
 	}
@@ -88,29 +88,31 @@ func (s *subscriptionService) FindSubscriptionsByUserID(ctx context.Context, use
 	return subs, err
 }
 
-func (s *subscriptionService) FindSubscriptionsBySlotInfo(ctx context.Context, slot model.Slot) ([]model.Subscription, error) {
-	subs, err := s.subRepo.FindBySlotInfo(ctx, slot.LabNumber, slot.LabAuditorium)
+func (s *subscriptionService) FindSubscriptionsBySlotInfo(ctx context.Context, slot polling.Slot) ([]ResponseSubscription, error) {
+	weekdays := make([]int, 0, len(slot.TimesTeachers))
+	for t := range slot.TimesTeachers {
+		weekdays = append(weekdays, int(t.Weekday()))
+	}
+	subFilters := SubFilters{
+		Type:          slot.Type,
+		LabNumber:     slot.Number,
+		LabAuditorium: slot.Auditorium,
+		Weekdays:      weekdays,
+	}
+	if slot.Type == polling.LabTypeDefence {
+		subFilters.LabDomain = &slot.Domain
+	}
+	times := make([]string, 0, len(slot.TimesTeachers))
+	for t := range slot.TimesTeachers {
+		times = append(times, t.Format("15:04"))
+	}
+	timeFilters := TimeFilters{
+		Includes: times,
+	}
+	subs, err := s.subRepo.Find(ctx, subFilters, timeFilters)
 	if err != nil {
 		slog.Error("Failed to find subscriptions", "slot", slot, "err", err)
 	}
 
-	res := make([]model.Subscription, 0)
-	availableMap := make(map[string]bool)
-	for _, available := range slot.Available {
-		key := fmt.Sprintf("%d-%s", available.Time.Weekday(), available.Time.Format("15:04"))
-		availableMap[key] = true
-	}
-
-	for _, sub := range subs {
-		if sub.Weekday == nil || sub.DayTime == nil {
-			res = append(res, sub)
-			continue
-		}
-
-		key := fmt.Sprintf("%d-%s", *sub.Weekday, *sub.DayTime)
-		if availableMap[key] {
-			res = append(res, sub)
-		}
-	}
-	return res, err
+	return subs, err
 }
