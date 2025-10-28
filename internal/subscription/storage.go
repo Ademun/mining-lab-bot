@@ -4,15 +4,14 @@ import (
 	"context"
 
 	"github.com/Ademun/mining-lab-bot/pkg/errs"
-	"github.com/Ademun/mining-lab-bot/pkg/model"
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
 
 type Repo interface {
-	Create(ctx context.Context, sub model.Subscription) error
-	Delete(ctx context.Context, UUID string) (bool, error)
-	FindByUserID(ctx context.Context, userID int) ([]model.Subscription, error)
-	FindBySlotInfo(ctx context.Context, labNumber, labAuditorium int) ([]model.Subscription, error)
+	Create(ctx context.Context, subReq RequestSubscription) error
+	Delete(ctx context.Context, uuid string) (bool, error)
+	Find(ctx context.Context, subFilters SubFilters, timeFilters TimeFilters) ([]ResponseSubscription, error)
 	Count(ctx context.Context) (int, error)
 }
 
@@ -24,13 +23,39 @@ func NewRepo(db *sqlx.DB) Repo {
 	return &subscriptionRepo{db: db}
 }
 
-func (s *subscriptionRepo) Create(ctx context.Context, sub model.Subscription) error {
-	query := `insert into subscriptions (uuid, user_id, lab_number, lab_auditorium, weekday, day_time) values (:uuid, :user_id, :lab_number, :lab_auditorium, :weekday, :day_time)`
-	_, err := s.db.NamedExecContext(ctx, query, sub)
+func (s *subscriptionRepo) Create(ctx context.Context, subReq RequestSubscription) error {
+	tx, err := s.db.BeginTxx(ctx, nil)
 	if err != nil {
-		return &errs.ErrQueryExecution{Operation: "Create", Query: query, Err: err}
+		return errs.ErrBeginTransaction
 	}
-	return nil
+	defer tx.Rollback()
+	sub, subTimes := subReq.toDBModels()
+
+	subInsert := `
+insert into subscriptions 
+(uuid, user_id, type, lab_number, lab_auditorium, lab_domain, weekday) 
+values 
+(:uuid, :user_id, :lab_type, :lab_number, :lab_auditorium, :lab_domain, :weekday)`
+	_, err = tx.NamedExecContext(ctx, subInsert, sub)
+	if err != nil {
+		return &errs.ErrQueryExecution{Operation: "Create", Query: subInsert, Err: err}
+	}
+
+	if len(subTimes) == 0 {
+		return tx.Commit()
+	}
+
+	timesInsert := `
+insert into subscription_times 
+(subscription_uuid, time_start, time_end) 
+values 
+(:subscription_uuid, :time_start, :time_end)
+`
+	if _, err = s.db.NamedExecContext(ctx, timesInsert, subTimes); err != nil {
+		return &errs.ErrQueryExecution{Operation: "Create", Query: timesInsert, Err: err}
+	}
+
+	return tx.Commit()
 }
 
 func (s *subscriptionRepo) Delete(ctx context.Context, uuid string) (bool, error) {
@@ -49,32 +74,75 @@ func (s *subscriptionRepo) Delete(ctx context.Context, uuid string) (bool, error
 	return true, nil
 }
 
-func (s *subscriptionRepo) FindByUserID(ctx context.Context, userID int) ([]model.Subscription, error) {
-	query := `select uuid, user_id, lab_number, lab_auditorium, weekday, day_time from subscriptions where user_id = ?`
-	var subs []model.Subscription
-	err := s.db.SelectContext(ctx, &subs, query, userID)
+func (s *subscriptionRepo) Find(ctx context.Context, subFilters SubFilters, timeFilters TimeFilters) ([]ResponseSubscription, error) {
+	tx, err := s.db.BeginTxx(ctx, nil)
 	if err != nil {
-		return nil, &errs.ErrQueryExecution{Operation: "FindByUserID", Query: query, Err: err}
+		return nil, errs.ErrBeginTransaction
 	}
-	return subs, nil
-}
+	defer tx.Rollback()
+	query, args, err := subFilters.buildQuery()
+	if err != nil {
+		return nil, &errs.ErrQueryCreation{Operation: "Find", Query: query, Err: err}
+	}
+	var subs []DBSubscription
+	if err = tx.SelectContext(ctx, &subs, query, args...); err != nil {
+		return nil, &errs.ErrQueryExecution{Operation: "Find", Query: query, Err: err}
+	}
 
-func (s *subscriptionRepo) FindBySlotInfo(ctx context.Context, labNumber, labAuditorium int) ([]model.Subscription, error) {
-	query := `select uuid, user_id, lab_number, lab_auditorium, weekday, day_time from subscriptions where lab_number = ? and lab_auditorium = ?`
-	var subs []model.Subscription
-	err := s.db.SelectContext(ctx, &subs, query, labNumber, labAuditorium)
+	response, err := s.convertDBSubsToResponse(ctx, tx, subs, timeFilters)
 	if err != nil {
-		return nil, &errs.ErrQueryExecution{Operation: "FindBySlotInfo", Query: query, Err: err}
+		return nil, &errs.ErrQueryExecution{Operation: "Find", Query: query, Err: err}
 	}
-	return subs, nil
+
+	return response, tx.Commit()
 }
 
 func (s *subscriptionRepo) Count(ctx context.Context) (int, error) {
-	query := `select count(*) from subscriptions`
+	query := `
+		select count(*)
+			from
+			subscriptions
+			`
 	var count int
 	err := s.db.QueryRowContext(ctx, query).Scan(&count)
 	if err != nil {
 		return 0, &errs.ErrQueryExecution{Operation: "Count", Query: query, Err: err}
 	}
 	return count, nil
+}
+
+func (s *subscriptionRepo) convertDBSubsToResponse(ctx context.Context, tx *sqlx.Tx, subs []DBSubscription, timeFilters TimeFilters) ([]ResponseSubscription, error) {
+	subUUIDs := make([]uuid.UUID, len(subs))
+	for idx, sub := range subs {
+		subUUIDs[idx] = sub.UUID
+	}
+
+	timeFilters.SubUUIDs = subUUIDs
+	prefTimes, err := s.findPreferredTimes(ctx, tx, timeFilters)
+	if err != nil {
+		return nil, err
+	}
+
+	subTimes := make(map[uuid.UUID][]DBSubscriptionTimes, len(subs))
+	for _, time := range prefTimes {
+		subTimes[time.SubscriptionUUID] = append(subTimes[time.SubscriptionUUID], time)
+	}
+
+	response := make([]ResponseSubscription, len(subs))
+	for idx, sub := range subs {
+		response[idx] = toResponse(sub, subTimes[sub.UUID])
+	}
+	return response, nil
+}
+
+func (s *subscriptionRepo) findPreferredTimes(ctx context.Context, tx *sqlx.Tx, timeFilters TimeFilters) ([]DBSubscriptionTimes, error) {
+	query, args, err := timeFilters.buildQuery()
+	if err != nil {
+		return nil, &errs.ErrQueryCreation{Operation: "findPreferredTimes", Query: query, Err: err}
+	}
+	var times []DBSubscriptionTimes
+	if err = tx.SelectContext(ctx, &times, query, args...); err != nil {
+		return nil, &errs.ErrQueryExecution{Operation: "findPreferredTimes", Query: query, Err: err}
+	}
+	return times, nil
 }
