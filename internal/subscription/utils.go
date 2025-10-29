@@ -1,5 +1,7 @@
 package subscription
 
+import "time"
+
 var lessonTimeRange = map[int]TimeRange{
 	1: {TimeStart: "08:50", TimeEnd: "10:20"},
 	2: {TimeStart: "10:35", TimeEnd: "12:05"},
@@ -11,7 +13,7 @@ var lessonTimeRange = map[int]TimeRange{
 	8: {TimeStart: "20:40", TimeEnd: "22:00"},
 }
 
-func lessonsToTimeRanges(lessons ...int) []TimeRange {
+func LessonsToTimeRanges(lessons ...int) []TimeRange {
 	ranges := make([]TimeRange, 0, len(lessons))
 	for _, lesson := range lessons {
 		if timeRange, exists := lessonTimeRange[lesson]; exists {
@@ -19,4 +21,13 @@ func lessonsToTimeRanges(lessons ...int) []TimeRange {
 		}
 	}
 	return ranges
+}
+
+func GetSubscriptionPreferredTimes(sub RequestSubscription) map[time.Weekday][]TimeRange {
+	if sub.Weekday == nil || len(sub.Lessons) == 0 {
+		return nil
+	}
+	return map[time.Weekday][]TimeRange{
+		time.Weekday(*sub.Weekday): LessonsToTimeRanges(sub.Lessons...),
+	}
 }

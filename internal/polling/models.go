@@ -28,12 +28,12 @@ const (
 )
 
 type Slot struct {
+	Type          LabType
 	Name          string
 	Number        int
 	Auditorium    int
 	Order         int // 0 if no order
 	Domain        Domain
-	Type          LabType
 	TimesTeachers map[time.Time][]string
 	URL           string
 }

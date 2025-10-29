@@ -7,13 +7,15 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
+	"golang.org/x/time/rate"
 	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	PollingConfig  PollingConfig  `yaml:"polling"`
-	TelegramConfig TelegramConfig `yaml:"telegram"`
-	TeacherConfig  TeacherConfig  `yaml:"teacher"`
+	PollingConfig      PollingConfig      `yaml:"polling"`
+	NotificationConfig NotificationConfig `yaml:"notification"`
+	TelegramConfig     TelegramConfig     `yaml:"telegram"`
+	TeacherConfig      TeacherConfig      `yaml:"teacher"`
 }
 
 type PollingConfig struct {
@@ -50,6 +52,12 @@ const (
 	ModeNormal     PollingMode = "normal"
 	ModeAggressive PollingMode = "aggressive"
 )
+
+type NotificationConfig struct {
+	RedisPrefix      string        `yaml:"redis_prefix"`
+	CacheTTL         time.Duration `yaml:"cache_ttl"`
+	NotificationRate rate.Limit    `yaml:"notification_rate"`
+}
 
 type TelegramConfig struct {
 	BotToken string

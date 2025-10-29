@@ -88,7 +88,7 @@ func (rs RequestSubscription) toDBModels() (DBSubscription, []DBSubscriptionTime
 		Weekday:       rs.Weekday,
 	}
 	dbTimes := make([]DBSubscriptionTimes, len(rs.Lessons))
-	for idx, timeRange := range lessonsToTimeRanges(rs.Lessons...) {
+	for idx, timeRange := range LessonsToTimeRanges(rs.Lessons...) {
 		dbTimes[idx] = DBSubscriptionTimes{
 			SubscriptionUUID: dbSub.UUID,
 			TimeStart:        timeRange.TimeStart,

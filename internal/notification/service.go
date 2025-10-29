@@ -2,130 +2,159 @@ package notification
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"time"
 
 	"github.com/Ademun/mining-lab-bot/internal/polling"
 	"github.com/Ademun/mining-lab-bot/internal/subscription"
-	"github.com/Ademun/mining-lab-bot/pkg/cache"
+	"github.com/Ademun/mining-lab-bot/pkg/config"
 	"github.com/Ademun/mining-lab-bot/pkg/logger"
-	"github.com/Ademun/mining-lab-bot/pkg/metrics"
-	"github.com/Ademun/mining-lab-bot/pkg/model"
-	"github.com/Ademun/mining-lab-bot/pkg/notifier"
+	"github.com/redis/go-redis/v9"
 	"golang.org/x/time/rate"
 )
 
 type Service interface {
 	SendNotification(ctx context.Context, slot polling.Slot)
-	NotifyNewSubscription(ctx context.Context, sub model.Subscription)
+	NotifyNewSubscription(ctx context.Context, sub subscription.RequestSubscription)
 }
 
 type notificationService struct {
 	subService subscription.Service
-	notifier   notifier.SlotNotifier
-	cache      *cache.TTLCache[model.Slot]
+	notifier   SlotNotifier
+	options    config.NotificationConfig
+	limiter    *rate.Limiter
+	cache      SlotCache
 }
 
-func New(subService subscription.Service, notifier notifier.SlotNotifier) Service {
+func New(subService subscription.Service, notifier SlotNotifier, client *redis.Client, opts *config.Config) Service {
 	return &notificationService{
 		subService: subService,
 		notifier:   notifier,
-		cache:      cache.NewTTLCache[model.Slot](time.Minute*5, time.Minute*10),
+		options:    opts.NotificationConfig,
+		limiter:    rate.NewLimiter(opts.NotificationConfig.NotificationRate, 1),
+		cache:      *NewSlotCache(client, opts.NotificationConfig.RedisPrefix, opts.NotificationConfig.CacheTTL),
 	}
 }
 
 func (s *notificationService) SendNotification(ctx context.Context, slot polling.Slot) {
-	_, exists := s.cache.Get(slot.Key())
-	s.cache.Set(slot.Key(), slot)
+	exists, err := s.cache.Exists(ctx, slot.Key())
+	if err != nil {
+		slog.Error("Redis error", "error", err, "service", logger.ServiceNotification)
+	}
 
 	if exists {
+		if err := s.cache.Refresh(ctx, slot.Key()); err != nil {
+			slog.Error("Redis error", "error", err, "service", logger.ServiceNotification)
+		}
 		return
 	}
 
-	subs, err := s.subService.FindSubscriptionsBySlotInfo(ctx, slot)
+	if err := s.cache.Set(ctx, slot); err != nil {
+		slog.Error("Redis error", "error", err, "service", logger.ServiceNotification)
+	}
+
+	users, err := s.subService.FindUsersBySlotInfo(ctx, slot)
 	if err != nil {
-		slog.Error("Failed to find subscriptions", "slot", slot, "err", err, "service", logger.ServiceNotification)
+		slog.Error("Failed to find users", "slot", slot, "err", err, "service", logger.ServiceNotification)
 	}
 
-	prefTimes := getSubscriptionPreferredTimes(subs...)
-	userIDsMap := make(map[int]struct{})
-	for _, sub := range subs {
-		if _, ok := userIDsMap[sub.UserID]; ok {
-			continue
-		}
-		userIDsMap[sub.UserID] = struct{}{}
-	}
-
-	limiter := rate.NewLimiter(25, 1)
-	for userID := range userIDsMap {
-		notif := model.Notification{
-			UserID:         userID,
-			PreferredTimes: prefTimes[userID],
+	for _, user := range users {
+		notif := Notification{
+			UserID:         user.UserID,
+			PreferredTimes: user.PreferredTimes,
 			Slot:           slot,
 		}
-		if err = limiter.Wait(ctx); err != nil {
+		if err = s.limiter.Wait(ctx); err != nil {
 			slog.Error("Limiter error", "err", err, "service", logger.ServiceNotification)
+			return
 		}
 		s.notifier.SendNotification(ctx, notif)
 	}
-	metrics.Global().RecordNotificationResults(len(userIDsMap), len(s.cache.List()))
 
-	slog.Info("Finished sending notifications", "total", len(subs), "slot", slot, "service", logger.ServiceNotification)
+	slog.Info("Finished sending notifications", "total", len(users), "slot", slot, "service", logger.ServiceNotification)
 }
 
-func (s *notificationService) NotifyNewSubscription(ctx context.Context, sub model.Subscription) {
-	slots := s.findSlotsBySubscriptionInfo(sub)
+func (s *notificationService) NotifyNewSubscription(ctx context.Context, sub subscription.RequestSubscription) {
+	slots, err := s.findSlotsBySubscriptionInfo(ctx, sub)
+	if err != nil {
+		slog.Error("Failed to find slots for subscription", "error", err, "service", logger.ServiceNotification)
+	}
 
-	prefTimes := getSubscriptionPreferredTimes(sub)
+	prefTimes := subscription.GetSubscriptionPreferredTimes(sub)
 	for _, slot := range slots {
-		notif := model.Notification{
+		notif := Notification{
 			UserID:         sub.UserID,
-			PreferredTimes: prefTimes[sub.UserID],
+			PreferredTimes: prefTimes,
 			Slot:           slot,
+		}
+		if err = s.limiter.Wait(ctx); err != nil {
+			slog.Error("Limiter error", "err", err, "service", logger.ServiceNotification)
+			return
 		}
 		s.notifier.SendNotification(ctx, notif)
 	}
-	metrics.Global().RecordNotificationResults(len(slots), len(s.cache.List()))
 
 	slog.Info("Finished sending notifications", "total", len(slots), "sub", sub, "service", logger.ServiceNotification)
 }
 
-func getSubscriptionPreferredTimes(subs ...model.Subscription) map[int][]model.PreferredTime {
-	userPrefTimes := make(map[int][]model.PreferredTime)
-	for _, sub := range subs {
-		userID := sub.UserID
-		var prefTime model.PreferredTime
-		if sub.Weekday != nil && sub.DayTime != nil {
-			prefTime.Weekday = *sub.Weekday
-			prefTime.DayTime = *sub.DayTime
+func (s *notificationService) findSlotsBySubscriptionInfo(ctx context.Context, sub subscription.RequestSubscription) ([]polling.Slot, error) {
+	items := make([]polling.Slot, 0)
+	cacheSlots, errChan := s.cache.ListSlots(ctx)
+	prefTimes := subscription.LessonsToTimeRanges(sub.Lessons...)
+	for cacheSlots != nil || errChan != nil {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case slot, ok := <-cacheSlots:
+			if !ok {
+				cacheSlots = nil
+				continue
+			}
+			if slot.Type != sub.Type {
+				continue
+			}
+			if slot.Number != sub.LabNumber {
+				continue
+			}
+			if sub.LabAuditorium != nil {
+				if slot.Auditorium != *sub.LabAuditorium {
+					continue
+				}
+			}
+			if sub.LabDomain != nil {
+				if slot.Domain != *sub.LabDomain {
+					continue
+				}
+			}
+			if matchesPreferredTimes(slot.TimesTeachers, sub.Weekday, prefTimes) {
+				items = append(items, slot)
+			}
+		case err, ok := <-errChan:
+			if !ok {
+				errChan = nil
+				continue
+			}
+			return nil, err
 		}
-		if _, exists := userPrefTimes[userID]; !exists {
-			userPrefTimes[userID] = []model.PreferredTime{prefTime}
-			continue
-		}
-		userPrefTimes[userID] = append(userPrefTimes[userID], prefTime)
 	}
-	return userPrefTimes
+	return items, nil
 }
 
-func (s *notificationService) findSlotsBySubscriptionInfo(sub model.Subscription) []model.Slot {
-	slots := s.cache.List()
-	items := make([]model.Slot, 0)
-	for _, slot := range slots {
-		if slot.LabNumber != sub.LabNumber || slot.LabAuditorium != sub.LabAuditorium {
+func matchesPreferredTimes(slotTimes map[time.Time][]string, subWeekday *int, prefTimes []subscription.TimeRange) bool {
+	if subWeekday == nil {
+		return true
+	}
+	for slotTime := range slotTimes {
+		slotWeekday := int(slotTime.Weekday())
+		if slotWeekday != *subWeekday {
 			continue
 		}
-		if sub.Weekday == nil || sub.DayTime == nil {
-			items = append(items, slot)
-		}
-		prefTime := fmt.Sprintf("%d-%s", *sub.Weekday, *sub.DayTime)
-		for _, available := range slot.Available {
-			slotTime := fmt.Sprintf("%d-%s", available.Time.Weekday(), available.Time.Format("15:04"))
-			if prefTime == slotTime {
-				items = append(items, slot)
+		slotTimeStr := slotTime.Format("15:04")
+		for _, prefTime := range prefTimes {
+			if slotTimeStr >= prefTime.TimeStart && slotTimeStr < prefTime.TimeEnd {
+				return true
 			}
 		}
 	}
-	return items
+	return false
 }

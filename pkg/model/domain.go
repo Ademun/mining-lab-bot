@@ -9,19 +9,9 @@ import (
 type LabType int
 
 const (
-	LabPerformance LabType = iota
-	LabDefence
+	LabTypePerformance LabType = iota
+	LabTypeDefence
 )
-
-func (t LabType) String() string {
-	switch t {
-	case LabPerformance:
-		return "Выполнение"
-	case LabDefence:
-		return "Защита"
-	}
-	return "Unknown"
-}
 
 type Slot struct {
 	ID            int
@@ -56,15 +46,11 @@ type Subscription struct {
 	DayTime       *string       `db:"day_time"`
 }
 
+type PreferredTimes map[time.Weekday][]string
 type Notification struct {
 	UserID         int
-	PreferredTimes []PreferredTime
+	PreferredTimes []PreferredTimes
 	Slot           Slot
-}
-
-type PreferredTime struct {
-	Weekday time.Weekday
-	DayTime string
 }
 
 type Teacher struct {
