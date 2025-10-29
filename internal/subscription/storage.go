@@ -51,7 +51,7 @@ insert into subscription_times
 values 
 (:subscription_uuid, :time_start, :time_end)
 `
-	if _, err = s.db.NamedExecContext(ctx, timesInsert, subTimes); err != nil {
+	if _, err = tx.NamedExecContext(ctx, timesInsert, subTimes); err != nil {
 		return &errs.ErrQueryExecution{Operation: "Create", Query: timesInsert, Err: err}
 	}
 

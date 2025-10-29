@@ -1,8 +1,6 @@
 package subscription
 
 import (
-	"strings"
-
 	"github.com/Ademun/mining-lab-bot/internal/polling"
 	"github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
@@ -24,7 +22,7 @@ func (f *SubFilters) buildQuery() (string, []interface{}, error) {
 	if f.UserID != 0 {
 		conditions = append(conditions, squirrel.Eq{"user_id": f.UserID})
 	}
-	conditions = append(conditions, squirrel.Eq{"type": f.Type})
+	conditions = append(conditions, squirrel.Eq{"lab_type": f.Type})
 	if f.LabNumber != 0 {
 		conditions = append(conditions, squirrel.Eq{"lab_number": f.LabNumber})
 	}
@@ -50,23 +48,24 @@ type TimeFilters struct {
 }
 
 func (f *TimeFilters) buildQuery() (string, []interface{}, error) {
-	q := squirrel.Select("*").From("subscriptions_times")
+	q := squirrel.Select("*").From("subscription_times")
 	conditions := squirrel.And{}
 
 	if len(f.SubUUIDs) > 0 {
 		conditions = append(conditions, squirrel.Eq{"subscription_uuid": f.SubUUIDs})
 	}
+
 	if len(f.Includes) > 0 {
-		placeholders := make([]string, len(f.Includes))
-		args := make([]interface{}, len(f.Includes))
-
-		for idx, t := range f.Includes {
-			placeholders[idx] = "?"
-			args[idx] = t
+		orConditions := squirrel.Or{}
+		for _, targetTime := range f.Includes {
+			orConditions = append(orConditions, squirrel.And{
+				squirrel.LtOrEq{"time_start": targetTime},
+				squirrel.Gt{"time_end": targetTime},
+			})
 		}
-
-		conditions = append(conditions, squirrel.Expr("EXISTS (SELECT 1 FROM (SELECT "+strings.Join(placeholders, " UNION ALL SELECT ")+") AS t(target_time) WHERE target_time >= time_start AND target_time < time_end)"))
+		conditions = append(conditions, orConditions)
 	}
+
 	if len(conditions) > 0 {
 		q = q.Where(conditions)
 	}

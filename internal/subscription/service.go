@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"time"
 
 	"github.com/Ademun/mining-lab-bot/internal/polling"
 	"github.com/Ademun/mining-lab-bot/pkg/errs"
@@ -17,7 +18,7 @@ type Service interface {
 	Subscribe(ctx context.Context, sub RequestSubscription) error
 	Unsubscribe(ctx context.Context, subUUID string) error
 	FindSubscriptionsByUserID(ctx context.Context, chatID int) ([]ResponseSubscription, error)
-	FindSubscriptionsBySlotInfo(ctx context.Context, slot polling.Slot) ([]ResponseSubscription, error)
+	FindUsersBySlotInfo(ctx context.Context, slot polling.Slot) ([]ResponseUser, error)
 }
 
 type subscriptionService struct {
@@ -88,7 +89,7 @@ func (s *subscriptionService) FindSubscriptionsByUserID(ctx context.Context, use
 	return subs, err
 }
 
-func (s *subscriptionService) FindSubscriptionsBySlotInfo(ctx context.Context, slot polling.Slot) ([]ResponseSubscription, error) {
+func (s *subscriptionService) FindUsersBySlotInfo(ctx context.Context, slot polling.Slot) ([]ResponseUser, error) {
 	weekdays := make([]int, 0, len(slot.TimesTeachers))
 	for t := range slot.TimesTeachers {
 		weekdays = append(weekdays, int(t.Weekday()))
@@ -114,5 +115,25 @@ func (s *subscriptionService) FindSubscriptionsBySlotInfo(ctx context.Context, s
 		slog.Error("Failed to find subscriptions", "slot", slot, "err", err)
 	}
 
-	return subs, err
+	userIDSubs := make(map[int][]ResponseSubscription)
+	for _, sub := range subs {
+		userIDSubs[sub.UserID] = append(userIDSubs[sub.UserID], sub)
+	}
+
+	users := make([]ResponseUser, 0, len(userIDSubs))
+	for userID, userSubs := range userIDSubs {
+		prefTimes := make(map[time.Weekday][]TimeRange)
+		for _, sub := range userSubs {
+			if sub.Weekday == nil {
+				continue
+			}
+			prefTimes[time.Weekday(*sub.Weekday)] = append(prefTimes[time.Weekday(*sub.Weekday)], sub.PreferredTimes...)
+		}
+		users = append(users, ResponseUser{
+			UserID:         userID,
+			PreferredTimes: prefTimes,
+		})
+	}
+
+	return users, err
 }

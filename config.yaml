@@ -10,5 +10,9 @@ polling:
   max_fetch_rate: 250ms
   backoff_factor: 2.0
   recovery_factor: 1.2
+notification:
+  redis_prefix: "slot:"
+  cache_ttl: 5m
+  notification_rate: 25.0
 teacher:
   staring_week: 2
