@@ -15,7 +15,7 @@ type FSM struct {
 }
 
 type State struct {
-	Step string                 `json:"step"`
+	Step ConversationStep       `json:"step"`
 	Data map[string]interface{} `json:"data"`
 }
 
@@ -44,7 +44,7 @@ func (f *FSM) GetState(ctx context.Context, userID int64) (*State, error) {
 	return &state, nil
 }
 
-func (f *FSM) SetStep(ctx context.Context, userID int64, step string) error {
+func (f *FSM) SetStep(ctx context.Context, userID int64, step ConversationStep) error {
 	key := f.makeKey(userID)
 	state, err := f.GetState(ctx, userID)
 	if err != nil {

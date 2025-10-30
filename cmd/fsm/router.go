@@ -8,25 +8,36 @@ import (
 	"github.com/go-telegram/bot/models"
 )
 
+type ConversationStep string
+
+const (
+	StepAwaitingLabType      ConversationStep = "awaiting_lab_type"
+	StepWaitingLabNumber     ConversationStep = "awaiting_lab_number"
+	StepWaitingLabAuditorium ConversationStep = "awaiting_lab_auditorium"
+	StepAwaitingLabDomain    ConversationStep = "awaiting_lab_domain"
+	StepAwaitingLabWeekday   ConversationStep = "awaiting_lab_weekday"
+	StepAwaitingLabLessons   ConversationStep = "awaiting_lab_lessons"
+)
+
 type HandlerFunc func(ctx context.Context, api *bot.Bot, update *models.Update, state *State)
 type Router struct {
 	fsm      *FSM
-	handlers map[string]HandlerFunc
+	handlers map[ConversationStep]HandlerFunc
 	mu       sync.RWMutex
 }
 
 func NewRouter(fsm *FSM) *Router {
 	return &Router{
 		fsm:      fsm,
-		handlers: make(map[string]HandlerFunc),
+		handlers: make(map[ConversationStep]HandlerFunc),
 		mu:       sync.RWMutex{},
 	}
 }
 
-func (r *Router) RegisterHandler(name string, handler HandlerFunc) {
+func (r *Router) RegisterHandler(step ConversationStep, handler HandlerFunc) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.handlers[name] = handler
+	r.handlers[step] = handler
 }
 
 func (r *Router) Middleware(next bot.HandlerFunc) bot.HandlerFunc {
