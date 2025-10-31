@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/Ademun/mining-lab-bot/cmd/fsm"
 	"github.com/Ademun/mining-lab-bot/internal/notification"
 	"github.com/Ademun/mining-lab-bot/internal/subscription"
 	"github.com/Ademun/mining-lab-bot/pkg/config"
@@ -22,7 +23,7 @@ type telegramBot struct {
 	subscriptionService subscription.Service
 	notifService        notification.Service
 	api                 *bot.Bot
-	stateManager        *stateManager
+	router              *fsm.Router
 	options             *config.TelegramConfig
 }
 

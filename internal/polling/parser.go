@@ -136,18 +136,18 @@ func parseOrder(username string, serviceName string) (int, error) {
 	return 0, &ErrParseData{data: username + " " + serviceName, msg: "lab order not found", err: errors.New("invalid lab name format")}
 }
 
-func parseDomain(serviceName string) Domain {
+func parseDomain(serviceName string) LabDomain {
 	if match := domainRe.FindStringSubmatch(serviceName); match != nil {
 		switch match[1] {
 		case "Электричество":
-			return DomainElectricity
+			return LabDomainElectricity
 		case "Механика":
-			return DomainMechanics
+			return LabDomainMechanics
 		case "Виртуальная лаб.":
-			return DomainVirtual
+			return LabDomainVirtual
 		}
 	}
-	return DomainVirtual
+	return LabDomainVirtual
 }
 
 func parseType(username string) LabType {

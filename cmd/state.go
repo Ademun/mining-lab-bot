@@ -47,13 +47,3 @@ func (sm *stateManager) clear(userID int64) {
 	defer sm.mu.Unlock()
 	delete(sm.states, userID)
 }
-
-type conversationStep string
-
-const (
-	stepAwaitingLabNumber     conversationStep = "awaiting_lab_number"
-	stepAwaitingLabAuditorium conversationStep = "awaiting_lab_auditorium"
-	stepAwaitingWeekday       conversationStep = "awaiting_weekday"
-	stepAwaitingDaytime       conversationStep = "awaiting_daytime"
-	stepConfirming            conversationStep = "confirming"
-)

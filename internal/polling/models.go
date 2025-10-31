@@ -12,13 +12,26 @@ import (
 // Модель записи на лабораторную работу
 // ======================================================
 
-type Domain int
+type LabDomain int
 
 const (
-	DomainElectricity Domain = iota
-	DomainMechanics
-	DomainVirtual
+	LabDomainElectricity LabDomain = iota
+	LabDomainMechanics
+	LabDomainVirtual
 )
+
+func (ld LabDomain) String() string {
+	switch ld {
+	case LabDomainElectricity:
+		return "Электричество"
+	case LabDomainMechanics:
+		return "Механика"
+	case LabDomainVirtual:
+		return "Виртуалка"
+	default:
+		return "Неизвестно"
+	}
+}
 
 type LabType int
 
@@ -27,13 +40,24 @@ const (
 	LabTypeDefence
 )
 
+func (lt LabType) String() string {
+	switch lt {
+	case LabTypePerformance:
+		return "Выполнение"
+	case LabTypeDefence:
+		return "Защита"
+	default:
+		return "Неизвестно"
+	}
+}
+
 type Slot struct {
 	Type          LabType
 	Name          string
 	Number        int
 	Auditorium    int
 	Order         int // 0 if no order
-	Domain        Domain
+	Domain        LabDomain
 	TimesTeachers map[time.Time][]string
 	URL           string
 }

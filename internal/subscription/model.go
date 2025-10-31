@@ -26,19 +26,19 @@ type ResponseSubscription struct {
 	LabType        polling.LabType
 	LabNumber      int
 	LabAuditorium  *int
-	LabDomain      *polling.Domain
+	LabDomain      *polling.LabDomain
 	Weekday        *int
 	PreferredTimes []TimeRange
 }
 
 type DBSubscription struct {
-	UUID          uuid.UUID       `db:"uuid"`
-	UserID        int             `db:"user_id"`
-	LabType       polling.LabType `db:"lab_type"`
-	LabNumber     int             `db:"lab_number"`
-	LabAuditorium *int            `db:"lab_auditorium"`
-	LabDomain     *polling.Domain `db:"lab_domain"`
-	Weekday       *int            `db:"weekday"`
+	UUID          uuid.UUID          `db:"uuid"`
+	UserID        int                `db:"user_id"`
+	LabType       polling.LabType    `db:"lab_type"`
+	LabNumber     int                `db:"lab_number"`
+	LabAuditorium *int               `db:"lab_auditorium"`
+	LabDomain     *polling.LabDomain `db:"lab_domain"`
+	Weekday       *int               `db:"weekday"`
 }
 
 type DBSubscriptionTimes struct {
@@ -72,7 +72,7 @@ type RequestSubscription struct {
 	Type          polling.LabType
 	LabNumber     int
 	LabAuditorium *int
-	LabDomain     *polling.Domain
+	LabDomain     *polling.LabDomain
 	Weekday       *int
 	Lessons       []int
 }

@@ -11,7 +11,7 @@ type SubFilters struct {
 	Type          polling.LabType
 	LabNumber     int
 	LabAuditorium int
-	LabDomain     *polling.Domain
+	LabDomain     *polling.LabDomain
 	Weekdays      []int
 }
 
