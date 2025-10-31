@@ -62,7 +62,7 @@ func (b *telegramBot) subscribeHandler(ctx context.Context, api *bot.Bot, update
 
 	api.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID:    chatID,
-		Text:      subAskLabNumberMessage(),
+		Text:      askLabNumberMsg(),
 		ParseMode: models.ParseModeHTML,
 	})
 }
@@ -161,7 +161,7 @@ func (b *telegramBot) awaitingLabNumberHandler(ctx context.Context, api *bot.Bot
 	if err != nil || labNumber < 1 || labNumber > 999 {
 		api.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID:    chatID,
-			Text:      subLabNumberValidationErrorMessage(),
+			Text:      labNumberValidationErrorMsg(),
 			ParseMode: models.ParseModeHTML,
 		})
 		return

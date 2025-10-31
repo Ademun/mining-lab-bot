@@ -6,9 +6,94 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Ademun/mining-lab-bot/internal/subscription"
 	"github.com/Ademun/mining-lab-bot/pkg/metrics"
 	"github.com/Ademun/mining-lab-bot/pkg/model"
 )
+
+func askLabNumberMsg() string {
+	var sb strings.Builder
+	sb.WriteString("<b>📚 Введите номер лабораторной работы</b>")
+	sb.WriteString(repeatLineBreaks(2))
+	sb.WriteString("Например: 7")
+	return sb.String()
+}
+
+func askLabAuditoriumMsg() string {
+	var sb strings.Builder
+	sb.WriteString("<b>🚪 Введите номер аудитории</b>")
+	sb.WriteString(repeatLineBreaks(2))
+	sb.WriteString("Например: 233")
+	return sb.String()
+}
+
+func askLabDomainMsg() string {
+	var sb strings.Builder
+	sb.WriteString("<b>⚛️ Выберите вид лабораторной работы")
+	return sb.String()
+}
+
+func askLabWeekdayMsg() string {
+	var sb strings.Builder
+	sb.WriteString("<b>📅 Выберите день недели</b>")
+	sb.WriteString(repeatLineBreaks(2))
+	sb.WriteString("Или пропустите, если день не важен")
+	return sb.String()
+}
+
+func askLabLessonMsg() string {
+	var sb strings.Builder
+	sb.WriteString("<b>🕐 Выбери время</b>")
+	return sb.String()
+}
+
+func askLabConfirmationMsg(data *subscription.RequestSubscription) string {
+
+	var sb strings.Builder
+	sb.WriteString("<b>✅ Создать подписку?</b>")
+	sb.WriteString(repeatLineBreaks(2))
+	sb.WriteString(fmt.Sprintf("<b>📚 Лаба: %d. %s</b>", data.LabNumber, data.Type.String()))
+	sb.WriteString(repeatLineBreaks(2))
+	if data.LabAuditorium != nil {
+		sb.WriteString(fmt.Sprintf("<b>🚪 Аудитория:</b> %d", data.LabAuditorium))
+	} else if data.LabDomain != nil {
+		sb.WriteString(fmt.Sprintf("<b>⚛️ %s</b>", data.LabDomain))
+	}
+	sb.WriteString(repeatLineBreaks(2))
+
+	if data.Weekday != nil {
+		sb.WriteString(repeatLineBreaks(2))
+		sb.WriteString(fmt.Sprintf("<b>📅 День:</b> %s", weekDayLocale[*data.Weekday]))
+	}
+
+	if data.Lessons != nil {
+		sb.WriteString(repeatLineBreaks(2))
+		sb.WriteString(fmt.Sprintf("<b>🕐 Время:</b>"))
+		for _, lesson := range data.Lessons {
+			sb.WriteString(fmt.Sprintf("<b>%s</b>", defaultLessons[lesson-1].Text))
+		}
+	}
+
+	return sb.String()
+}
+
+func genericServiceErrorMsg() string {
+	var sb strings.Builder
+	sb.WriteString("<b>❌ Произошла неизвестная ошибка. Попробуйте снова</b>")
+	return sb.String()
+}
+
+func labNumberValidationErrorMsg() string {
+	var sb strings.Builder
+	sb.WriteString("<b>❌ Номер лабы должен быть числом в диапазоне от 1 до 999</b>")
+	return sb.String()
+}
+
+func labAuditoriumValidationErrorMsg() string {
+	var sb strings.Builder
+	sb.WriteString("<b>❌ Номер аудитории должен быть числом в диапазоне от 1 до 999</b>")
+	return sb.String()
+}
 
 func startMessage() string {
 	var sb strings.Builder
@@ -38,36 +123,6 @@ func helpMessage() string {
 	return sb.String()
 }
 
-func subAskLabNumberMessage() string {
-	var sb strings.Builder
-	sb.WriteString("<b>📚 Введите номер лабораторной работы</b>")
-	sb.WriteString(repeatLineBreaks(2))
-	sb.WriteString("Например: 7")
-	return sb.String()
-}
-
-func subAskAuditoriumMessage() string {
-	var sb strings.Builder
-	sb.WriteString("<b>🚪 Введите номер аудитории</b>")
-	sb.WriteString(repeatLineBreaks(2))
-	sb.WriteString("Например: 233")
-	return sb.String()
-}
-
-func subAskWeekdayMessage() string {
-	var sb strings.Builder
-	sb.WriteString("<b>📅 Выберите день недели</b>")
-	sb.WriteString(repeatLineBreaks(2))
-	sb.WriteString("Или пропустите, если день не важен")
-	return sb.String()
-}
-
-func subAskLessonMessage() string {
-	var sb strings.Builder
-	sb.WriteString("<b>🕐 Выбери время</b>")
-	return sb.String()
-}
-
 var weekDayLocale = map[int]string{
 	0: "Воскресенье",
 	1: "Понедельник",
@@ -78,45 +133,7 @@ var weekDayLocale = map[int]string{
 	6: "Суббота",
 }
 
-func subConfirmationMessage(data *subscriptionData) string {
-	labNumber := data.LabNumber
-	auditorium := data.LabAuditorium
-	weekday := data.Weekday
-	timeStr := data.Daytime
-
-	var sb strings.Builder
-	sb.WriteString("<b>✅ Создать подписку?</b>")
-	sb.WriteString(repeatLineBreaks(2))
-	sb.WriteString(fmt.Sprintf("<b>📚 Лаба:</b> %d", labNumber))
-	sb.WriteString(repeatLineBreaks(2))
-	sb.WriteString(fmt.Sprintf("<b>🚪 Аудитория:</b> %d", auditorium))
-
-	if weekday != nil {
-		sb.WriteString(repeatLineBreaks(2))
-		sb.WriteString(fmt.Sprintf("<b>📅 День:</b> %s", weekDayLocale[int(*weekday)]))
-	}
-
-	if timeStr != nil {
-		sb.WriteString(repeatLineBreaks(2))
-		sb.WriteString(fmt.Sprintf("<b>🕐 Время:</b> %s", timeLessonMap[*timeStr]))
-	}
-
-	return sb.String()
-}
-
-func subLabNumberValidationErrorMessage() string {
-	var sb strings.Builder
-	sb.WriteString("<b>❌ Номер лабы должен быть числом в диапазоне от 1 до 999</b>")
-	return sb.String()
-}
-
-func subAuditoriumNumberValidationErrorMessage() string {
-	var sb strings.Builder
-	sb.WriteString("<b>❌ Номер аудитории должен быть числом в диапазоне от 1 до 999</b>")
-	return sb.String()
-}
-
-func subCancelledMessage() string {
+func subCreationCancelledMessage() string {
 	var sb strings.Builder
 	sb.WriteString("<b>❌ Создание подписки отменено</b>")
 	return sb.String()
@@ -130,7 +147,7 @@ func subCreationErrorMessage(err error) string {
 	return sb.String()
 }
 
-func subCreationSuccessMessage() string {
+func subCreationSuccessMsg() string {
 	var sb strings.Builder
 	sb.WriteString("<b>✅ Подписка создана!</b>")
 	sb.WriteString(repeatLineBreaks(2))

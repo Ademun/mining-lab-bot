@@ -2,348 +2,509 @@ package cmd
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"log"
+	"log/slog"
 	"strconv"
 	"strings"
-	"time"
 
-	"github.com/Ademun/mining-lab-bot/pkg/errs"
-	"github.com/Ademun/mining-lab-bot/pkg/model"
+	"github.com/Ademun/mining-lab-bot/cmd/fsm"
+	"github.com/Ademun/mining-lab-bot/internal/polling"
+	"github.com/Ademun/mining-lab-bot/internal/subscription"
+	"github.com/Ademun/mining-lab-bot/pkg/logger"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
-	"github.com/google/uuid"
 )
 
-func (b *telegramBot) callbackRouter(ctx context.Context, api *bot.Bot, update *models.Update) {
-	callbackData := update.CallbackQuery.Data
-	switch {
-	case strings.HasPrefix(callbackData, "weekday:"):
-		b.callbackWeekdayHandler(ctx, api, update)
-	case strings.HasPrefix(callbackData, "lesson:"):
-		b.callbackLessonHandler(ctx, api, update)
-	case strings.HasPrefix(callbackData, "skip:"):
-		b.callbackSkipHandler(ctx, api, update)
-	case strings.HasPrefix(callbackData, "confirm:"):
-		b.callbackConfirmSubHandler(ctx, api, update)
-	case strings.HasPrefix(callbackData, "unsub:"):
-		b.callbackUnsubHandler(ctx, api, update)
-	}
-}
-
-func (b *telegramBot) callbackWeekdayHandler(ctx context.Context, api *bot.Bot, update *models.Update) {
+func (b *telegramBot) handleLabType(ctx context.Context, api *bot.Bot, update *models.Update, state *fsm.State) {
 	userID := update.CallbackQuery.From.ID
-	chatID := update.CallbackQuery.Message.Message.Chat.ID
+	labType := extractLabType(update)
 
-	state, exists := b.stateManager.get(userID)
-	if !exists || state.Step != stepAwaitingWeekday {
-		api.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
-			CallbackQueryID: update.CallbackQuery.ID,
-			Text:            "Состояние устарело",
-		})
-		return
+	slog.Info("Handling lab type selection",
+		"user_id", userID,
+		"lab_type", labType,
+		"service", logger.TelegramBot)
+
+	newData := map[string]interface{}{
+		"user_id":  userID,
+		"lab_type": labType,
+	}
+	b.tryTransition(ctx, api, userID, fsm.StepAwaitingLabNumber, newData)
+
+	if _, err := api.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID:    userID,
+		Text:      askLabNumberMsg(),
+		ParseMode: models.ParseModeHTML,
+	}); err != nil {
+		slog.Error("Failed to send lab number request",
+			"error", err,
+			"user_id", userID,
+			"service", logger.TelegramBot)
 	}
 
-	weekdayString := strings.TrimPrefix(update.CallbackQuery.Data, "weekday:")
-	weekdayInt, _ := strconv.Atoi(weekdayString)
-	weekday := time.Weekday(weekdayInt)
-
-	state.Data.Weekday = &weekday
-	state.Step = stepAwaitingDaytime
-	b.stateManager.set(userID, state)
-
-	api.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
+	if _, err := api.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
 		CallbackQueryID: update.CallbackQuery.ID,
-	})
-
-	api.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID:      chatID,
-		Text:        subAskLessonMessage(),
-		ReplyMarkup: createLessonKeyboard(),
-		ParseMode:   models.ParseModeHTML,
-	})
-}
-
-var lessonTimeMap = map[int]string{
-	1: "08:50",
-	2: "10:35",
-	3: "12:35",
-	4: "14:15",
-	5: "15:55",
-	6: "17:30",
-	7: "19:10",
-	8: "20:40",
-}
-
-func (b *telegramBot) callbackLessonHandler(ctx context.Context, api *bot.Bot, update *models.Update) {
-	userID := update.CallbackQuery.From.ID
-	chatID := update.CallbackQuery.Message.Message.Chat.ID
-
-	state, exists := b.stateManager.get(userID)
-	if !exists || state.Step != stepAwaitingDaytime {
-		api.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
-			CallbackQueryID: update.CallbackQuery.ID,
-			Text:            "Состояние устарело",
-		})
-		return
+	}); err != nil {
+		slog.Error("Failed to answer callback query",
+			"error", err,
+			"user_id", userID,
+			"service", logger.TelegramBot)
 	}
-
-	lessonString := strings.TrimPrefix(update.CallbackQuery.Data, "lesson:")
-	lesson, _ := strconv.Atoi(lessonString)
-	lessonTime := lessonTimeMap[lesson]
-
-	state.Data.Daytime = &lessonTime
-	state.Step = stepConfirming
-
-	b.stateManager.set(userID, state)
-
-	api.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
-		CallbackQueryID: update.CallbackQuery.ID,
-	})
-
-	api.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID:      chatID,
-		Text:        subConfirmationMessage(&state.Data),
-		ParseMode:   models.ParseModeHTML,
-		ReplyMarkup: createConfirmationKeyboard(),
-	})
 }
 
-func (b *telegramBot) callbackSkipHandler(ctx context.Context, api *bot.Bot, update *models.Update) {
-	userID := update.CallbackQuery.From.ID
-	chatID := update.CallbackQuery.Message.Message.Chat.ID
+func (b *telegramBot) handleLabNumber(ctx context.Context, api *bot.Bot, update *models.Update, state *fsm.State) {
+	userID := update.Message.From.ID
+	labNumberStr := update.Message.Text
 
-	state, exists := b.stateManager.get(userID)
-	if !exists {
-		api.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
-			CallbackQueryID: update.CallbackQuery.ID,
-			Text:            "Состояние устарело",
-		})
-		return
-	}
+	slog.Debug("Handling lab number input",
+		"user_id", userID,
+		"input", labNumberStr,
+		"service", logger.TelegramBot)
 
-	api.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
-		CallbackQueryID: update.CallbackQuery.ID,
-	})
+	labNumber, err := strconv.Atoi(labNumberStr)
+	if err != nil {
+		slog.Warn("Invalid lab number format",
+			"error", err,
+			"user_id", userID,
+			"input", labNumberStr,
+			"service", logger.TelegramBot)
 
-	field := strings.TrimPrefix(update.CallbackQuery.Data, "skip:")
-	if field == "weekday" {
-		if state.Step != stepAwaitingWeekday {
-			return
+		if _, sendErr := api.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID: userID,
+			Text:   labNumberValidationErrorMsg(),
+		}); sendErr != nil {
+			slog.Error("Failed to send validation error message",
+				"error", sendErr,
+				"user_id", userID,
+				"service", logger.TelegramBot)
 		}
-		state.Data.Weekday = nil
-		state.Data.Daytime = nil
-		state.Step = stepConfirming
-		b.stateManager.set(userID, state)
-		api.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID:      chatID,
-			Text:        subConfirmationMessage(&state.Data),
+		return
+	}
+
+	slog.Info("Lab number validated",
+		"user_id", userID,
+		"lab_number", labNumber,
+		"service", logger.TelegramBot)
+
+	newData := map[string]interface{}{
+		"lab_number": labNumber,
+	}
+
+	labType, ok := state.Data["lab_type"].(polling.LabType)
+	if !ok {
+		slog.Error("Failed to get lab type from state",
+			"user_id", userID,
+			"service", logger.TelegramBot)
+		return
+	}
+
+	switch labType {
+	case polling.LabTypePerformance:
+		slog.Debug("Processing performance lab type",
+			"user_id", userID,
+			"service", logger.TelegramBot)
+
+		b.tryTransition(ctx, api, userID, fsm.StepAwaitingLabAuditorium, newData)
+		if _, err := b.api.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID:    userID,
+			Text:      askLabAuditoriumMsg(),
+			ParseMode: models.ParseModeHTML,
+		}); err != nil {
+			slog.Error("Failed to send auditorium request",
+				"error", err,
+				"user_id", userID,
+				"service", logger.TelegramBot)
+		}
+
+	case polling.LabTypeDefence:
+		slog.Debug("Processing defence lab type",
+			"user_id", userID,
+			"service", logger.TelegramBot)
+
+		b.tryTransition(ctx, api, userID, fsm.StepAwaitingLabDomain, newData)
+		if _, err := b.api.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID:      userID,
+			Text:        askLabDomainMsg(),
 			ParseMode:   models.ParseModeHTML,
-			ReplyMarkup: createConfirmationKeyboard(),
-		})
+			ReplyMarkup: selectLabDomainKbd(),
+		}); err != nil {
+			slog.Error("Failed to send domain request",
+				"error", err,
+				"user_id", userID,
+				"service", logger.TelegramBot)
+		}
 	}
 }
 
-func (b *telegramBot) callbackConfirmSubHandler(ctx context.Context, api *bot.Bot, update *models.Update) {
+func (b *telegramBot) handleLabAuditorium(ctx context.Context, api *bot.Bot, update *models.Update, state *fsm.State) {
+	userID := update.Message.From.ID
+	labAuditoriumStr := update.Message.Text
+
+	slog.Debug("Handling lab auditorium input",
+		"user_id", userID,
+		"input", labAuditoriumStr,
+		"service", logger.TelegramBot)
+
+	labAuditorium, err := strconv.Atoi(labAuditoriumStr)
+	if err != nil {
+		slog.Warn("Invalid lab auditorium format",
+			"error", err,
+			"user_id", userID,
+			"input", labAuditoriumStr,
+			"service", logger.TelegramBot)
+
+		if _, sendErr := api.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID:    userID,
+			Text:      labAuditoriumValidationErrorMsg(),
+			ParseMode: models.ParseModeHTML,
+		}); sendErr != nil {
+			slog.Error("Failed to send validation error message",
+				"error", sendErr,
+				"user_id", userID,
+				"service", logger.TelegramBot)
+		}
+		return
+	}
+
+	slog.Info("Lab auditorium validated",
+		"user_id", userID,
+		"lab_auditorium", labAuditorium,
+		"service", logger.TelegramBot)
+
+	newData := map[string]interface{}{
+		"lab_auditorium": labAuditorium,
+	}
+
+	b.tryTransition(ctx, api, userID, fsm.StepAwaitingLabWeekday, newData)
+	if _, err := api.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID:      userID,
+		Text:        askLabWeekdayMsg(),
+		ParseMode:   models.ParseModeHTML,
+		ReplyMarkup: selectLabWeekdayKbd(),
+	}); err != nil {
+		slog.Error("Failed to send weekday request",
+			"error", err,
+			"user_id", userID,
+			"service", logger.TelegramBot)
+	}
+}
+
+func (b *telegramBot) handleLabDomain(ctx context.Context, api *bot.Bot, update *models.Update, state *fsm.State) {
 	userID := update.CallbackQuery.From.ID
-	chatID := update.CallbackQuery.Message.Message.Chat.ID
+	labDomain := extractLabDomain(update)
 
-	action := strings.TrimPrefix(update.CallbackQuery.Data, "confirm:")
-	api.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
+	slog.Info("Handling lab domain selection",
+		"user_id", userID,
+		"lab_domain", labDomain,
+		"service", logger.TelegramBot)
+
+	newData := map[string]interface{}{
+		"lab_domain": labDomain,
+	}
+
+	b.tryTransition(ctx, api, userID, fsm.StepAwaitingLabWeekday, newData)
+	if _, err := api.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID:      userID,
+		Text:        askLabWeekdayMsg(),
+		ParseMode:   models.ParseModeHTML,
+		ReplyMarkup: selectLabWeekdayKbd(),
+	}); err != nil {
+		slog.Error("Failed to send weekday request",
+			"error", err,
+			"user_id", userID,
+			"service", logger.TelegramBot)
+	}
+
+	if _, err := api.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
 		CallbackQueryID: update.CallbackQuery.ID,
-	})
+	}); err != nil {
+		slog.Error("Failed to answer callback query",
+			"error", err,
+			"user_id", userID,
+			"service", logger.TelegramBot)
+	}
+}
 
-	if action == "cancel" {
-		b.stateManager.clear(userID)
-		api.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID:    chatID,
-			Text:      subCancelledMessage(),
-			ParseMode: models.ParseModeHTML,
-		})
+func (b *telegramBot) handleLabWeekday(ctx context.Context, api *bot.Bot, update *models.Update, state *fsm.State) {
+	userID := update.CallbackQuery.From.ID
+	labWeekday := extractLabWeekday(update)
+
+	slog.Info("Handling lab weekday selection",
+		"user_id", userID,
+		"lab_weekday", labWeekday,
+		"service", logger.TelegramBot)
+
+	newData := map[string]interface{}{
+		"lab_weekday": labWeekday,
+	}
+
+	b.tryTransition(ctx, api, userID, fsm.StepAwaitingLabLessons, newData)
+	if _, err := api.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID:      userID,
+		Text:        askLabLessonMsg(),
+		ParseMode:   models.ParseModeHTML,
+		ReplyMarkup: selectLessonKbd(defaultLessons),
+	}); err != nil {
+		slog.Error("Failed to send lesson request",
+			"error", err,
+			"user_id", userID,
+			"service", logger.TelegramBot)
+	}
+
+	if _, err := api.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
+		CallbackQueryID: update.CallbackQuery.ID,
+	}); err != nil {
+		slog.Error("Failed to answer callback query",
+			"error", err,
+			"user_id", userID,
+			"service", logger.TelegramBot)
+	}
+}
+
+func (b *telegramBot) handleLabLessons(ctx context.Context, api *bot.Bot, update *models.Update, state *fsm.State) {
+	userID := update.CallbackQuery.From.ID
+	labLesson := extractLabLesson(update)
+
+	slog.Debug("Handling lab lesson selection",
+		"user_id", userID,
+		"lab_lesson", labLesson,
+		"service", logger.TelegramBot)
+
+	if labLesson == nil {
+		slog.Info("User finished lesson selection, requesting confirmation",
+			"user_id", userID,
+			"service", logger.TelegramBot)
+
+		sub := parseState(userID, state)
+		b.tryTransition(ctx, api, userID, fsm.StepAwaitingLabConfirmation, nil)
+
+		if _, err := api.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID:      userID,
+			Text:        askLabConfirmationMsg(sub),
+			ParseMode:   models.ParseModeHTML,
+			ReplyMarkup: askLabConfirmationKbd(),
+		}); err != nil {
+			slog.Error("Failed to send confirmation request",
+				"error", err,
+				"user_id", userID,
+				"service", logger.TelegramBot)
+		}
 		return
 	}
 
-	state, exists := b.stateManager.get(userID)
-	if !exists || state.Step != stepConfirming {
-		api.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID:    chatID,
-			Text:      "Состояние устарело",
-			ParseMode: models.ParseModeHTML,
-		})
-		return
+	prevLessons, _ := state.Data["lab_lessons"].([]int)
+	newLessons := append(prevLessons, *labLesson)
+
+	slog.Debug("Adding lesson to selection",
+		"user_id", userID,
+		"lesson", *labLesson,
+		"total_lessons", len(newLessons),
+		"service", logger.TelegramBot)
+
+	newData := map[string]interface{}{
+		"lab_lessons": newLessons,
 	}
 
-	sub := model.Subscription{
-		UUID:          uuid.New().String(),
-		UserID:        int(userID),
-		LabNumber:     state.Data.LabNumber,
-		LabAuditorium: state.Data.LabAuditorium,
-		Weekday:       state.Data.Weekday,
-		DayTime:       state.Data.Daytime,
+	// Исправленная логика фильтрации уроков
+	existingLessonsMap := make(map[int]bool)
+	for _, lesson := range newLessons {
+		existingLessonsMap[lesson] = true
 	}
 
-	if state.Data.Daytime != nil {
-		_, err := parseTime(*state.Data.Daytime)
+	kbdLessons := make([]Lesson, 0, len(defaultLessons))
+	for _, lesson := range defaultLessons {
+		lessonNum, err := extractLessonNumberFromCallback(lesson.CallbackData)
 		if err != nil {
-			api.SendMessage(ctx, &bot.SendMessageParams{
-				ChatID:    chatID,
+			slog.Warn("Failed to parse lesson number from callback",
+				"error", err,
+				"callback_data", lesson.CallbackData,
+				"service", logger.TelegramBot)
+			continue
+		}
+		if !existingLessonsMap[lessonNum] {
+			kbdLessons = append(kbdLessons, lesson)
+		}
+	}
+
+	b.tryTransition(ctx, api, userID, fsm.StepAwaitingLabLessons, newData)
+
+	if _, err := api.EditMessageReplyMarkup(ctx, &bot.EditMessageReplyMarkupParams{
+		ChatID:      userID,
+		MessageID:   update.CallbackQuery.Message.Message.ID,
+		ReplyMarkup: selectLessonKbd(kbdLessons),
+	}); err != nil {
+		slog.Error("Failed to update lesson keyboard",
+			"error", err,
+			"user_id", userID,
+			"service", logger.TelegramBot)
+	}
+}
+
+func (b *telegramBot) handleLabConfirmation(ctx context.Context, api *bot.Bot, update *models.Update, state *fsm.State) {
+	userID := update.CallbackQuery.From.ID
+	confirmed := extractConfirmed(update)
+
+	slog.Info("Handling lab confirmation",
+		"user_id", userID,
+		"confirmed", confirmed,
+		"service", logger.TelegramBot)
+
+	if confirmed {
+		sub := parseState(userID, state)
+		b.tryTransition(ctx, api, userID, fsm.StepIdle, nil)
+
+		err := b.subscriptionService.Subscribe(ctx, *sub)
+		if err != nil {
+			slog.Error("Failed to create subscription",
+				"error", err,
+				"user_id", userID,
+				"service", logger.TelegramBot)
+
+			if _, sendErr := api.SendMessage(ctx, &bot.SendMessageParams{
+				ChatID:    userID,
 				Text:      subCreationErrorMessage(err),
 				ParseMode: models.ParseModeHTML,
-			})
-			b.stateManager.clear(userID)
+			}); sendErr != nil {
+				slog.Error("Failed to send error message",
+					"error", sendErr,
+					"user_id", userID,
+					"service", logger.TelegramBot)
+			}
 			return
 		}
-	}
 
-	if err := b.subscriptionService.Subscribe(ctx, sub); err != nil {
-		if errors.Is(err, errs.ErrSubscriptionExists) {
-			err = fmt.Errorf("вы уже создали такую подписку")
-		}
-		api.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID:    chatID,
-			Text:      subCreationErrorMessage(err),
+		slog.Info("Subscription created successfully",
+			"user_id", userID,
+			"service", logger.TelegramBot)
+
+		if _, err := api.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID:    userID,
+			Text:      subCreationSuccessMsg(),
 			ParseMode: models.ParseModeHTML,
-		})
-		b.stateManager.clear(userID)
+		}); err != nil {
+			slog.Error("Failed to send success message",
+				"error", err,
+				"user_id", userID,
+				"service", logger.TelegramBot)
+		}
 		return
 	}
 
-	b.stateManager.clear(userID)
+	slog.Info("Subscription creation cancelled by user",
+		"user_id", userID,
+		"service", logger.TelegramBot)
 
-	api.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID:    chatID,
-		Text:      subCreationSuccessMessage(),
+	b.tryTransition(ctx, api, userID, fsm.StepIdle, nil)
+
+	if _, err := api.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID:    userID,
+		Text:      subCreationCancelledMessage(),
 		ParseMode: models.ParseModeHTML,
-	})
-
-	b.notifService.NotifyNewSubscription(ctx, sub)
+	}); err != nil {
+		slog.Error("Failed to send cancellation message",
+			"error", err,
+			"user_id", userID,
+			"service", logger.TelegramBot)
+	}
 }
 
-func (b *telegramBot) callbackUnsubHandler(ctx context.Context, api *bot.Bot, update *models.Update) {
-	userID := update.CallbackQuery.From.ID
-	chatID := update.CallbackQuery.Message.Message.Chat.ID
-	messageID := update.CallbackQuery.Message.Message.ID
-	data := update.CallbackQuery.Data
+func (b *telegramBot) tryTransition(ctx context.Context, api *bot.Bot, userID int64, newStep fsm.ConversationStep, newData map[string]interface{}) {
+	if err := b.router.Transition(ctx, userID, newStep, newData); err != nil {
+		slog.Error("State transition failed",
+			"error", err,
+			"user_id", userID,
+			"new_step", newStep,
+			"service", logger.TelegramBot)
 
-	api.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
-		CallbackQueryID: update.CallbackQuery.ID,
-	})
-
-	switch {
-	case strings.HasPrefix(data, "unsub:delete:"):
-		subUUID := strings.TrimPrefix(data, "unsub:delete:")
-		subs, err := b.subscriptionService.FindSubscriptionsByUserID(ctx, int(userID))
-		if err != nil {
-			api.SendMessage(ctx, &bot.SendMessageParams{
-				ChatID:    chatID,
-				Text:      subsFetchingErrorMessage(err),
-				ParseMode: models.ParseModeHTML,
-			})
-		}
-
-		var targetSub *model.Subscription
-		for _, sub := range subs {
-			if sub.UUID == subUUID {
-				targetSub = &sub
-				break
-			}
-		}
-
-		if targetSub == nil {
-			return
-		}
-
-		if err := b.subscriptionService.Unsubscribe(ctx, subUUID); err != nil {
-			api.SendMessage(ctx, &bot.SendMessageParams{
-				ChatID:    chatID,
-				Text:      unsubErrorMessage(err),
-				ParseMode: models.ParseModeHTML,
-			})
-			return
-		}
-
-		updatedSubs, err := b.subscriptionService.FindSubscriptionsByUserID(ctx, int(userID))
-		if err != nil {
-			api.SendMessage(ctx, &bot.SendMessageParams{
-				ChatID:    chatID,
-				Text:      subsFetchingErrorMessage(err),
-				ParseMode: models.ParseModeHTML,
-			})
-			return
-		}
-
-		if len(updatedSubs) == 0 {
-			api.EditMessageText(ctx, &bot.EditMessageTextParams{
-				ChatID:    chatID,
-				MessageID: messageID,
-				Text:      unsubEmptyListMessage(),
-				ParseMode: models.ParseModeHTML,
-			})
-			return
-		}
-		api.EditMessageText(ctx, &bot.EditMessageTextParams{
-			ChatID:      chatID,
-			MessageID:   messageID,
-			Text:        unsubSelectMessage(),
-			ParseMode:   models.ParseModeHTML,
-			ReplyMarkup: createUnsubKeyboard(updatedSubs),
-		})
-
-		api.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID:    chatID,
-			Text:      unsubSuccessMessage(),
+		if _, sendErr := api.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID:    userID,
+			Text:      genericServiceErrorMsg(),
 			ParseMode: models.ParseModeHTML,
-		})
-	case data == "unsub:all":
-		api.EditMessageText(ctx, &bot.EditMessageTextParams{
-			ChatID:      chatID,
-			MessageID:   messageID,
-			Text:        unsubConfirmDeleteAllMessage(),
-			ParseMode:   models.ParseModeHTML,
-			ReplyMarkup: createDeleteAllConfirmKeyboard(),
-		})
-	case data == "unsub:all:confirm":
-		subs, err := b.subscriptionService.FindSubscriptionsByUserID(ctx, int(userID))
-		if err != nil {
-			api.SendMessage(ctx, &bot.SendMessageParams{
-				ChatID:    chatID,
-				Text:      subsFetchingErrorMessage(err),
-				ParseMode: models.ParseModeHTML,
-			})
-			return
+		}); sendErr != nil {
+			slog.Error("Failed to send error message",
+				"error", sendErr,
+				"user_id", userID,
+				"service", logger.TelegramBot)
 		}
+	}
+}
 
-		count := len(subs)
-		for _, sub := range subs {
-			if err := b.subscriptionService.Unsubscribe(ctx, sub.UUID); err != nil {
-				log.Printf("error unsubscribing: %v", err)
-			}
-		}
+func extractLabType(update *models.Update) polling.LabType {
+	labTypeStr := update.CallbackQuery.Data
+	labTypeStr = strings.TrimPrefix(labTypeStr, "lab_creation:type:")
 
-		api.EditMessageText(ctx, &bot.EditMessageTextParams{
-			ChatID:    chatID,
-			MessageID: messageID,
-			Text:      unsubDeleteAllSuccessMessage(count),
-			ParseMode: models.ParseModeHTML,
-		})
-	case data == "unsub:all:cancel":
-		subs, err := b.subscriptionService.FindSubscriptionsByUserID(ctx, int(userID))
-		if err != nil {
-			api.SendMessage(ctx, &bot.SendMessageParams{
-				ChatID:    chatID,
-				Text:      subsFetchingErrorMessage(err),
-				ParseMode: models.ParseModeHTML,
-			})
-			return
-		}
+	var labType polling.LabType
+	switch labTypeStr {
+	case "performance":
+		labType = polling.LabTypePerformance
+	case "defence":
+		labType = polling.LabTypeDefence
+	}
+	return labType
+}
 
-		api.EditMessageText(ctx, &bot.EditMessageTextParams{
-			ChatID:      chatID,
-			MessageID:   messageID,
-			Text:        unsubSelectMessage(),
-			ParseMode:   models.ParseModeHTML,
-			ReplyMarkup: createUnsubKeyboard(subs),
-		})
+func extractLabDomain(update *models.Update) polling.LabDomain {
+	labDomainStr := update.CallbackQuery.Data
+	labDomainStr = strings.TrimPrefix(labDomainStr, "lab_creation:domain:")
+
+	var labDomain polling.LabDomain
+	switch labDomainStr {
+	case "mechanics":
+		labDomain = polling.LabDomainMechanics
+	case "virtual":
+		labDomain = polling.LabDomainVirtual
+	case "electricity":
+		labDomain = polling.LabDomainElectricity
+	}
+	return labDomain
+}
+
+func extractLabWeekday(update *models.Update) *int {
+	labWeekdayStr := update.CallbackQuery.Data
+	labWeekdayStr = strings.TrimPrefix(labWeekdayStr, "lab_creation:weekday:")
+
+	if labWeekdayStr == "skip" {
+		return nil
+	}
+	labWeekdayInt, _ := strconv.Atoi(labWeekdayStr)
+	return &labWeekdayInt
+}
+
+func extractLabLesson(update *models.Update) *int {
+	labLessonStr := update.CallbackQuery.Data
+	labLessonStr = strings.TrimPrefix(labLessonStr, "lab_creation:lesson:")
+
+	if labLessonStr == "skip" {
+		return nil
+	}
+	labLessonInt, _ := strconv.Atoi(labLessonStr)
+	return &labLessonInt
+}
+
+func extractConfirmed(update *models.Update) bool {
+	confirmedStr := update.CallbackQuery.Data
+	confirmedStr = strings.TrimPrefix(confirmedStr, "lab_creation:confirm:")
+	return confirmedStr == "create"
+}
+
+func extractLessonNumberFromCallback(callbackData string) (int, error) {
+	lessonStr := strings.TrimPrefix(callbackData, "lab_creation:lesson:")
+	return strconv.Atoi(lessonStr)
+}
+
+func parseState(userID int64, state *fsm.State) *subscription.RequestSubscription {
+	labType, _ := state.Data["lab_type"].(polling.LabType)
+	labNumber, _ := state.Data["lab_number"].(int)
+	labAuditorium, _ := state.Data["lab_auditorium"].(*int)
+	labDomain, _ := state.Data["lab_domain"].(*polling.LabDomain)
+	labWeekday, _ := state.Data["lab_weekday"].(*int)
+	labLessons, _ := state.Data["lab_lessons"].([]int)
+
+	return &subscription.RequestSubscription{
+		UserID:        int(userID),
+		Type:          labType,
+		LabNumber:     labNumber,
+		LabAuditorium: labAuditorium,
+		LabDomain:     labDomain,
+		Weekday:       labWeekday,
+		Lessons:       labLessons,
 	}
 }
