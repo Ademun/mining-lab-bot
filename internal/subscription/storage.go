@@ -10,7 +10,7 @@ import (
 
 type Repo interface {
 	Create(ctx context.Context, subReq RequestSubscription) error
-	Delete(ctx context.Context, uuid string) (bool, error)
+	Delete(ctx context.Context, uuid uuid.UUID) (bool, error)
 	Find(ctx context.Context, subFilters SubFilters, timeFilters TimeFilters) ([]ResponseSubscription, error)
 	Count(ctx context.Context) (int, error)
 }
@@ -58,9 +58,9 @@ values
 	return tx.Commit()
 }
 
-func (s *subscriptionRepo) Delete(ctx context.Context, uuid string) (bool, error) {
+func (s *subscriptionRepo) Delete(ctx context.Context, uuid uuid.UUID) (bool, error) {
 	query := `delete from subscriptions where uuid = ?`
-	res, err := s.db.ExecContext(ctx, query, uuid)
+	res, err := s.db.ExecContext(ctx, query, uuid.String())
 	if err != nil {
 		return false, &errs.ErrQueryExecution{Operation: "Delete", Query: query, Err: err}
 	}

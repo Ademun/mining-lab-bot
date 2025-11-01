@@ -40,7 +40,7 @@ func (f *FSM) GetState(ctx context.Context, userID int64) (*State, error) {
 			"user_id", userID,
 			"service", logger.TelegramBot)
 		return &State{
-			Step: "",
+			Step: StepIdle,
 			Data: make(map[string]interface{}),
 		}, nil
 	}

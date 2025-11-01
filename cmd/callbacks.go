@@ -12,8 +12,10 @@ import (
 	"github.com/Ademun/mining-lab-bot/pkg/logger"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
+	"github.com/google/uuid"
 )
 
+// These are the callbacks associated with the process of creating a subscription
 func (b *telegramBot) handleLabType(ctx context.Context, api *bot.Bot, update *models.Update, state *fsm.State) {
 	userID := update.CallbackQuery.From.ID
 	labType := extractLabType(update)
@@ -24,7 +26,6 @@ func (b *telegramBot) handleLabType(ctx context.Context, api *bot.Bot, update *m
 		"service", logger.TelegramBot)
 
 	newData := map[string]interface{}{
-		"user_id":  userID,
 		"lab_type": labType,
 	}
 	b.tryTransition(ctx, api, userID, fsm.StepAwaitingLabNumber, newData)
@@ -239,7 +240,7 @@ func (b *telegramBot) handleLabWeekday(ctx context.Context, api *bot.Bot, update
 	b.tryTransition(ctx, api, userID, fsm.StepAwaitingLabLessons, newData)
 	if _, err := api.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID:      userID,
-		Text:        askLabLessonMsg(),
+		Text:        askLabLessonsMsg(),
 		ParseMode:   models.ParseModeHTML,
 		ReplyMarkup: selectLessonKbd(defaultLessons),
 	}); err != nil {
@@ -274,11 +275,11 @@ func (b *telegramBot) handleLabLessons(ctx context.Context, api *bot.Bot, update
 			"service", logger.TelegramBot)
 
 		sub := parseState(userID, state)
-		b.tryTransition(ctx, api, userID, fsm.StepAwaitingLabConfirmation, nil)
+		b.tryTransition(ctx, api, userID, fsm.StepAwaitingSubCreationConfirmation, nil)
 
 		if _, err := api.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID:      userID,
-			Text:        askLabConfirmationMsg(sub),
+			Text:        askSubCreationConfirmationMsg(sub),
 			ParseMode:   models.ParseModeHTML,
 			ReplyMarkup: askLabConfirmationKbd(),
 		}); err != nil {
@@ -303,22 +304,14 @@ func (b *telegramBot) handleLabLessons(ctx context.Context, api *bot.Bot, update
 		"lab_lessons": newLessons,
 	}
 
-	// Исправленная логика фильтрации уроков
 	existingLessonsMap := make(map[int]bool)
 	for _, lesson := range newLessons {
 		existingLessonsMap[lesson] = true
 	}
 
 	kbdLessons := make([]Lesson, 0, len(defaultLessons))
-	for _, lesson := range defaultLessons {
-		lessonNum, err := extractLessonNumberFromCallback(lesson.CallbackData)
-		if err != nil {
-			slog.Warn("Failed to parse lesson number from callback",
-				"error", err,
-				"callback_data", lesson.CallbackData,
-				"service", logger.TelegramBot)
-			continue
-		}
+	for i, lesson := range defaultLessons {
+		lessonNum := i + 1
 		if !existingLessonsMap[lessonNum] {
 			kbdLessons = append(kbdLessons, lesson)
 		}
@@ -338,7 +331,7 @@ func (b *telegramBot) handleLabLessons(ctx context.Context, api *bot.Bot, update
 	}
 }
 
-func (b *telegramBot) handleLabConfirmation(ctx context.Context, api *bot.Bot, update *models.Update, state *fsm.State) {
+func (b *telegramBot) handleSubCreationConfirmation(ctx context.Context, api *bot.Bot, update *models.Update, state *fsm.State) {
 	userID := update.CallbackQuery.From.ID
 	confirmed := extractConfirmed(update)
 
@@ -353,14 +346,9 @@ func (b *telegramBot) handleLabConfirmation(ctx context.Context, api *bot.Bot, u
 
 		err := b.subscriptionService.Subscribe(ctx, *sub)
 		if err != nil {
-			slog.Error("Failed to create subscription",
-				"error", err,
-				"user_id", userID,
-				"service", logger.TelegramBot)
-
 			if _, sendErr := api.SendMessage(ctx, &bot.SendMessageParams{
 				ChatID:    userID,
-				Text:      subCreationErrorMessage(err),
+				Text:      subCreationErrorMsg(err),
 				ParseMode: models.ParseModeHTML,
 			}); sendErr != nil {
 				slog.Error("Failed to send error message",
@@ -396,13 +384,92 @@ func (b *telegramBot) handleLabConfirmation(ctx context.Context, api *bot.Bot, u
 
 	if _, err := api.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID:    userID,
-		Text:      subCreationCancelledMessage(),
+		Text:      subCreationCancelledMsg(),
 		ParseMode: models.ParseModeHTML,
 	}); err != nil {
 		slog.Error("Failed to send cancellation message",
 			"error", err,
 			"user_id", userID,
 			"service", logger.TelegramBot)
+	}
+}
+
+// /unsub and /list actions
+func (b *telegramBot) handleListingSubsAction(ctx context.Context, api *bot.Bot, update *models.Update, state *fsm.State) {
+	userID := update.CallbackQuery.From.ID
+
+	userSubs, ok := state.Data["user_subs"].([]subscription.ResponseSubscription)
+	if !ok {
+		slog.Error("Invalid user_subs format", "service", logger.TelegramBot)
+	}
+
+	if _, err := api.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
+		CallbackQueryID: update.CallbackQuery.ID,
+	}); err != nil {
+		slog.Error("Failed to answer callback query",
+			"error", err,
+			"user_id", userID,
+			"service", logger.TelegramBot)
+	}
+
+	newIndex, subUUID := extractListingData(update)
+	if newIndex != nil && *newIndex > 0 && *newIndex < len(userSubs) {
+		if _, err := api.EditMessageReplyMarkup(ctx, &bot.EditMessageReplyMarkupParams{
+			ChatID:      userID,
+			ReplyMarkup: listSubsKbd(userSubs[*newIndex].UUID, *newIndex, len(userSubs)),
+		}); err != nil {
+			slog.Error("Failed to edit subs list message",
+				"error", err,
+				"user_id", userID,
+				"service", logger.TelegramBot)
+		}
+		return
+	}
+
+	if subUUID != nil {
+		if err := b.subscriptionService.Unsubscribe(ctx, *subUUID); err != nil {
+			if _, err := api.SendMessage(ctx, &bot.SendMessageParams{
+				ChatID:    userID,
+				Text:      genericServiceErrorMsg(),
+				ParseMode: models.ParseModeHTML,
+			}); err != nil {
+				slog.Error("Failed to send generic error message",
+					"error", err,
+					"user_id", userID,
+					"service", logger.TelegramBot)
+			}
+			return
+		}
+
+		newIdx := 0
+		for i, sub := range userSubs {
+			if sub.UUID.String() == subUUID.String() {
+				newIdx = i - 1
+				userSubs = append(userSubs[:i], userSubs[i+1:]...)
+				break
+			}
+		}
+
+		if _, err := api.EditMessageReplyMarkup(ctx, &bot.EditMessageReplyMarkupParams{
+			ChatID:      userID,
+			ReplyMarkup: listSubsKbd(userSubs[newIdx].UUID, newIdx, len(userSubs)),
+		}); err != nil {
+			slog.Error("Failed to edit subs list message",
+				"error", err,
+				"user_id", userID,
+				"service", logger.TelegramBot)
+		}
+
+		if _, err := api.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID:    userID,
+			Text:      unsubSuccessMsg(),
+			ParseMode: models.ParseModeHTML,
+		}); err != nil {
+			slog.Error("Failed to send unsub success message",
+				"error", err,
+				"user_id", userID,
+				"service", logger.TelegramBot)
+		}
 	}
 }
 
@@ -419,7 +486,7 @@ func (b *telegramBot) tryTransition(ctx context.Context, api *bot.Bot, userID in
 			Text:      genericServiceErrorMsg(),
 			ParseMode: models.ParseModeHTML,
 		}); sendErr != nil {
-			slog.Error("Failed to send error message",
+			slog.Error("Failed to send generic error message",
 				"error", sendErr,
 				"user_id", userID,
 				"service", logger.TelegramBot)
@@ -429,7 +496,7 @@ func (b *telegramBot) tryTransition(ctx context.Context, api *bot.Bot, userID in
 
 func extractLabType(update *models.Update) polling.LabType {
 	labTypeStr := update.CallbackQuery.Data
-	labTypeStr = strings.TrimPrefix(labTypeStr, "lab_creation:type:")
+	labTypeStr = strings.TrimPrefix(labTypeStr, "sub_creation:type:")
 
 	var labType polling.LabType
 	switch labTypeStr {
@@ -443,7 +510,7 @@ func extractLabType(update *models.Update) polling.LabType {
 
 func extractLabDomain(update *models.Update) polling.LabDomain {
 	labDomainStr := update.CallbackQuery.Data
-	labDomainStr = strings.TrimPrefix(labDomainStr, "lab_creation:domain:")
+	labDomainStr = strings.TrimPrefix(labDomainStr, "sub_creation:domain:")
 
 	var labDomain polling.LabDomain
 	switch labDomainStr {
@@ -459,7 +526,7 @@ func extractLabDomain(update *models.Update) polling.LabDomain {
 
 func extractLabWeekday(update *models.Update) *int {
 	labWeekdayStr := update.CallbackQuery.Data
-	labWeekdayStr = strings.TrimPrefix(labWeekdayStr, "lab_creation:weekday:")
+	labWeekdayStr = strings.TrimPrefix(labWeekdayStr, "sub_creation:weekday:")
 
 	if labWeekdayStr == "skip" {
 		return nil
@@ -470,7 +537,7 @@ func extractLabWeekday(update *models.Update) *int {
 
 func extractLabLesson(update *models.Update) *int {
 	labLessonStr := update.CallbackQuery.Data
-	labLessonStr = strings.TrimPrefix(labLessonStr, "lab_creation:lesson:")
+	labLessonStr = strings.TrimPrefix(labLessonStr, "sub_creation:lesson:")
 
 	if labLessonStr == "skip" {
 		return nil
@@ -481,13 +548,8 @@ func extractLabLesson(update *models.Update) *int {
 
 func extractConfirmed(update *models.Update) bool {
 	confirmedStr := update.CallbackQuery.Data
-	confirmedStr = strings.TrimPrefix(confirmedStr, "lab_creation:confirm:")
+	confirmedStr = strings.TrimPrefix(confirmedStr, "sub_creation:confirm:")
 	return confirmedStr == "create"
-}
-
-func extractLessonNumberFromCallback(callbackData string) (int, error) {
-	lessonStr := strings.TrimPrefix(callbackData, "lab_creation:lesson:")
-	return strconv.Atoi(lessonStr)
 }
 
 func parseState(userID int64, state *fsm.State) *subscription.RequestSubscription {
@@ -507,4 +569,30 @@ func parseState(userID int64, state *fsm.State) *subscription.RequestSubscriptio
 		Weekday:       labWeekday,
 		Lessons:       labLessons,
 	}
+}
+
+// extractListingData returns new sub index if the selected action was "move:idx", and sub uuid if it was "delete"
+func extractListingData(update *models.Update) (*int, *uuid.UUID) {
+	dataFields := strings.Split(update.CallbackQuery.Data, ":")[1:]
+	switch dataFields[0] {
+	case "move":
+		newIndex, err := strconv.Atoi(dataFields[1])
+		if err != nil {
+			slog.Error("Failed to parse new sub index",
+				"index", dataFields[1],
+				"error", err,
+				"service", logger.TelegramBot)
+		}
+		return &newIndex, nil
+	case "delete":
+		subUUID, err := uuid.Parse(dataFields[1])
+		if err != nil {
+			slog.Error("Failed to parse sub uuid",
+				"uuid", dataFields[1],
+				"error", err,
+				"service", logger.TelegramBot)
+		}
+		return nil, &subUUID
+	}
+	return nil, nil
 }

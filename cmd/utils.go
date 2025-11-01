@@ -2,22 +2,10 @@ package cmd
 
 import (
 	"fmt"
-	"regexp"
-	"strconv"
 	"time"
 
 	"github.com/Ademun/mining-lab-bot/pkg/config"
-	"github.com/Ademun/mining-lab-bot/pkg/model"
 )
-
-func formatAvailableSlots(slots []model.TimeTeachers) map[string][]model.TimeTeachers {
-	slotsMap := make(map[string][]model.TimeTeachers)
-	for _, slot := range slots {
-		key := slot.Time.Format("2006-01-02")
-		slotsMap[key] = append(slotsMap[key], slot)
-	}
-	return slotsMap
-}
 
 func formatDateRelative(t time.Time, now time.Time) string {
 	targetDay := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
@@ -70,26 +58,4 @@ func formatPollingMode(mode config.PollingMode) string {
 	default:
 		return "неизвестный"
 	}
-}
-
-func parseTime(input string) (time.Time, error) {
-	re := regexp.MustCompile(`^(\d{1,2})[:.]?(\d{2})$`)
-	matches := re.FindStringSubmatch(input)
-	if matches == nil {
-		return time.Now(), fmt.Errorf("неверный формат времени")
-	}
-	hours, err := strconv.Atoi(matches[1])
-	if err != nil || hours < 0 || hours > 23 {
-		return time.Now(), fmt.Errorf("часы должны быть в диапазоне 0-23")
-	}
-	minutes, err := strconv.Atoi(matches[2])
-	if err != nil || minutes < 0 || minutes > 59 {
-		return time.Now(), fmt.Errorf("минуты должны быть в диапазоне 0-59")
-	}
-
-	now := time.Now()
-	parsedTime := time.Date(now.Year(), now.Month(), now.Day(), hours, minutes, 0, 0,
-		now.Location())
-
-	return parsedTime, nil
 }

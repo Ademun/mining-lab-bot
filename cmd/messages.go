@@ -6,10 +6,45 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Ademun/mining-lab-bot/internal/notification"
+	"github.com/Ademun/mining-lab-bot/internal/polling"
 	"github.com/Ademun/mining-lab-bot/internal/subscription"
 	"github.com/Ademun/mining-lab-bot/pkg/metrics"
-	"github.com/Ademun/mining-lab-bot/pkg/model"
 )
+
+func helpMsg() string {
+	var sb strings.Builder
+	sb.WriteString("<b>📖 Справка</b>")
+	sb.WriteString(repeatLineBreaks(3))
+	sb.WriteString("<b>📝 Подписка:</b>")
+	sb.WriteString(repeatLineBreaks(2))
+	sb.WriteString("<b>/sub - создать подписку</b>")
+	sb.WriteString(repeatLineBreaks(3))
+	sb.WriteString("<b>⚙️ Управление:</b>")
+	sb.WriteString(repeatLineBreaks(2))
+	sb.WriteString("<b>/unsub - удалить подписку</b>")
+	sb.WriteString(repeatLineBreaks(2))
+	sb.WriteString("<b>/list - посмотреть подписки</b>")
+	return sb.String()
+}
+
+func startMsg() string {
+	var sb strings.Builder
+	sb.WriteString("<b>👋 Привет!</b>")
+	sb.WriteString(repeatLineBreaks(3))
+	sb.WriteString("<b>Я бот для записи на лабораторные работы</b>")
+	sb.WriteString(repeatLineBreaks(3))
+	sb.WriteString("<b>Буду следить за появлением доступных записей и сразу уведомлять тебя, когда появится нужная </b>")
+	sb.WriteString(repeatLineBreaks(3))
+	sb.WriteString("<b>Используй /help для просмотра доступных команд</b>")
+	return sb.String()
+}
+
+func askLabTypeMsg() string {
+	var sb strings.Builder
+	sb.WriteString("<b>📝 Выберите тип лабораторной работы")
+	return sb.String()
+}
 
 func askLabNumberMsg() string {
 	var sb strings.Builder
@@ -19,11 +54,23 @@ func askLabNumberMsg() string {
 	return sb.String()
 }
 
+func labNumberValidationErrorMsg() string {
+	var sb strings.Builder
+	sb.WriteString("<b>❌ Номер лабы должен быть числом в диапазоне от 1 до 999</b>")
+	return sb.String()
+}
+
 func askLabAuditoriumMsg() string {
 	var sb strings.Builder
 	sb.WriteString("<b>🚪 Введите номер аудитории</b>")
 	sb.WriteString(repeatLineBreaks(2))
 	sb.WriteString("Например: 233")
+	return sb.String()
+}
+
+func labAuditoriumValidationErrorMsg() string {
+	var sb strings.Builder
+	sb.WriteString("<b>❌ Номер аудитории должен быть числом в диапазоне от 1 до 999</b>")
 	return sb.String()
 }
 
@@ -41,85 +88,9 @@ func askLabWeekdayMsg() string {
 	return sb.String()
 }
 
-func askLabLessonMsg() string {
+func askLabLessonsMsg() string {
 	var sb strings.Builder
 	sb.WriteString("<b>🕐 Выбери время</b>")
-	return sb.String()
-}
-
-func askLabConfirmationMsg(data *subscription.RequestSubscription) string {
-
-	var sb strings.Builder
-	sb.WriteString("<b>✅ Создать подписку?</b>")
-	sb.WriteString(repeatLineBreaks(2))
-	sb.WriteString(fmt.Sprintf("<b>📚 Лаба: %d. %s</b>", data.LabNumber, data.Type.String()))
-	sb.WriteString(repeatLineBreaks(2))
-	if data.LabAuditorium != nil {
-		sb.WriteString(fmt.Sprintf("<b>🚪 Аудитория:</b> %d", data.LabAuditorium))
-	} else if data.LabDomain != nil {
-		sb.WriteString(fmt.Sprintf("<b>⚛️ %s</b>", data.LabDomain))
-	}
-	sb.WriteString(repeatLineBreaks(2))
-
-	if data.Weekday != nil {
-		sb.WriteString(repeatLineBreaks(2))
-		sb.WriteString(fmt.Sprintf("<b>📅 День:</b> %s", weekDayLocale[*data.Weekday]))
-	}
-
-	if data.Lessons != nil {
-		sb.WriteString(repeatLineBreaks(2))
-		sb.WriteString(fmt.Sprintf("<b>🕐 Время:</b>"))
-		for _, lesson := range data.Lessons {
-			sb.WriteString(fmt.Sprintf("<b>%s</b>", defaultLessons[lesson-1].Text))
-		}
-	}
-
-	return sb.String()
-}
-
-func genericServiceErrorMsg() string {
-	var sb strings.Builder
-	sb.WriteString("<b>❌ Произошла неизвестная ошибка. Попробуйте снова</b>")
-	return sb.String()
-}
-
-func labNumberValidationErrorMsg() string {
-	var sb strings.Builder
-	sb.WriteString("<b>❌ Номер лабы должен быть числом в диапазоне от 1 до 999</b>")
-	return sb.String()
-}
-
-func labAuditoriumValidationErrorMsg() string {
-	var sb strings.Builder
-	sb.WriteString("<b>❌ Номер аудитории должен быть числом в диапазоне от 1 до 999</b>")
-	return sb.String()
-}
-
-func startMessage() string {
-	var sb strings.Builder
-	sb.WriteString("<b>👋 Привет!</b>")
-	sb.WriteString(repeatLineBreaks(3))
-	sb.WriteString("<b>Я бот для записи на лабораторные работы</b>")
-	sb.WriteString(repeatLineBreaks(3))
-	sb.WriteString("<b>Буду следить за появлением доступных записей и сразу уведомлять тебя, когда появится нужная </b>")
-	sb.WriteString(repeatLineBreaks(3))
-	sb.WriteString("<b>Используй /help для просмотра доступных команд</b>")
-	return sb.String()
-}
-
-func helpMessage() string {
-	var sb strings.Builder
-	sb.WriteString("<b>📖 Справка</b>")
-	sb.WriteString(repeatLineBreaks(3))
-	sb.WriteString("<b>📝 Подписка:</b>")
-	sb.WriteString(repeatLineBreaks(2))
-	sb.WriteString("<b>/sub - создать подписку</b>")
-	sb.WriteString(repeatLineBreaks(3))
-	sb.WriteString("<b>⚙️ Управление:</b>")
-	sb.WriteString(repeatLineBreaks(2))
-	sb.WriteString("<b>/unsub - удалить подписку</b>")
-	sb.WriteString(repeatLineBreaks(2))
-	sb.WriteString("<b>/list - посмотреть подписки</b>")
 	return sb.String()
 }
 
@@ -133,13 +104,42 @@ var weekDayLocale = map[int]string{
 	6: "Суббота",
 }
 
-func subCreationCancelledMessage() string {
+func askSubCreationConfirmationMsg(sub *subscription.RequestSubscription) string {
+	var sb strings.Builder
+	sb.WriteString("<b>✅ Создать подписку?</b>")
+	sb.WriteString(repeatLineBreaks(2))
+	sb.WriteString(fmt.Sprintf("<b>📚 Лаба: %d. %s</b>", sub.LabNumber, sub.Type.String()))
+	sb.WriteString(repeatLineBreaks(2))
+	if sub.LabAuditorium != nil {
+		sb.WriteString(fmt.Sprintf("<b>🚪 Аудитория:</b> %d", sub.LabAuditorium))
+	} else if sub.LabDomain != nil {
+		sb.WriteString(fmt.Sprintf("<b>⚛️ %s</b>", sub.LabDomain))
+	}
+	sb.WriteString(repeatLineBreaks(2))
+
+	if sub.Weekday != nil {
+		sb.WriteString(repeatLineBreaks(2))
+		sb.WriteString(fmt.Sprintf("<b>📅 День:</b> %s", weekDayLocale[*sub.Weekday]))
+	}
+
+	if sub.Lessons != nil {
+		sb.WriteString(repeatLineBreaks(2))
+		sb.WriteString(fmt.Sprintf("<b>🕐 Время:</b>"))
+		for _, lesson := range sub.Lessons {
+			sb.WriteString(fmt.Sprintf("<b>%s</b>", defaultLessons[lesson-1].Text))
+		}
+	}
+
+	return sb.String()
+}
+
+func subCreationCancelledMsg() string {
 	var sb strings.Builder
 	sb.WriteString("<b>❌ Создание подписки отменено</b>")
 	return sb.String()
 }
 
-func subCreationErrorMessage(err error) string {
+func subCreationErrorMsg(err error) string {
 	var sb strings.Builder
 	sb.WriteString("<b>❌ Произошла ошибка при создании подписки:</b>")
 	sb.WriteString(repeatLineBreaks(2))
@@ -155,93 +155,58 @@ func subCreationSuccessMsg() string {
 	return sb.String()
 }
 
-func unsubEmptyListMessage() string {
+var timeStartToLesson = map[string]string{
+	"08:50": "08:50 - 10:20 - 1️⃣ пара",
+	"10:35": "10:35 - 12:05 - 2️⃣ пара",
+	"12:35": "12:35 - 14:05 - 3️⃣ пара",
+	"14:15": "14:15 - 15:45 - 4️⃣ пара",
+	"15:55": "15:55 - 17:20 - 5️⃣ пара",
+	"17:30": "17:30 - 19:00 - 6️⃣ пара",
+	"19:10": "19:10 - 20:30 - 7️⃣ пара",
+	"20:40": "20:40 - 22:00 - 8️⃣ пара",
+}
+
+func viewSubResponseMsg(sub *subscription.ResponseSubscription) string {
 	var sb strings.Builder
-	sb.WriteString("<b>🔍 У вас нет подписок на лабы</b>")
+	sb.WriteString(fmt.Sprintf("<b>📚 Лаба: %d. %s</b>", sub.LabNumber, sub.LabType.String()))
 	sb.WriteString(repeatLineBreaks(2))
-	sb.WriteString("Используйте команду /sub для создания подписки")
-	return sb.String()
-}
-
-func unsubSelectMessage() string {
-	var sb strings.Builder
-	sb.WriteString("<b>🗑️ Выберите подписку для удаления:</b>")
-	return sb.String()
-}
-
-func unsubConfirmDeleteAllMessage() string {
-	var sb strings.Builder
-	sb.WriteString("<b>⚠️ Удалить все подписки?</b>")
+	if sub.LabAuditorium != nil {
+		sb.WriteString(fmt.Sprintf("<b>🚪 Аудитория:</b> %d", sub.LabAuditorium))
+	} else if sub.LabDomain != nil {
+		sb.WriteString(fmt.Sprintf("<b>⚛️ %s</b>", sub.LabDomain))
+	}
 	sb.WriteString(repeatLineBreaks(2))
-	sb.WriteString("Это действие нельзя отменить")
-	return sb.String()
-}
 
-func unsubDeleteAllSuccessMessage(count int) string {
-	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("<b>✅ Удалено подписок: %d</b>", count))
-	return sb.String()
-}
-
-func subsFetchingErrorMessage(err error) string {
-	var sb strings.Builder
-	sb.WriteString("<b>❌ Произошла ошибка при получении списка подписок:</b>")
-	sb.WriteString(repeatLineBreaks(2))
-	sb.WriteString(fmt.Sprintf("<b>%s</b>", err.Error()))
-	return sb.String()
-}
-
-func unsubErrorMessage(err error) string {
-	var sb strings.Builder
-	sb.WriteString("<b>❌ Произошла ошибка при отписке:</b>")
-	sb.WriteString(repeatLineBreaks(2))
-	sb.WriteString(fmt.Sprintf("<b>%s</b>", err.Error()))
-	return sb.String()
-}
-
-func unsubSuccessMessage() string {
-	var sb strings.Builder
-	sb.WriteString("<b>✅ Вы больше не подписаны на эту лабу</b>")
-	return sb.String()
-}
-
-func listEmptySubsMessage() string {
-	var sb strings.Builder
-	sb.WriteString("<b>🔍 У вас нет подписок на лабы</b>")
-	sb.WriteString(repeatLineBreaks(2))
-	sb.WriteString("Используйте команду /sub для создания подписки")
-	return sb.String()
-}
-
-func listSubsSuccessMessage(subs []model.Subscription) string {
-	var sb strings.Builder
-	sb.WriteString("<b>📋 Ваши подписки:</b>")
-	sb.WriteString(repeatLineBreaks(2))
-	for idx, sub := range subs {
-		label := fmt.Sprintf("Лаба №%d, ауд. №%d", sub.LabNumber, sub.LabAuditorium)
-		var timeString string
-		if sub.Weekday != nil && sub.DayTime != nil {
-			timeString = fmt.Sprintf(", %s %s", weekDayLocale[int(*sub.Weekday)], timeLessonMap[*sub.DayTime])
-		} else {
-			timeString = ", Любое время"
-		}
-		label += timeString
-		sb.WriteString(fmt.Sprintf("<b>• %s</b>", label))
-		if idx == len(subs)-1 {
-			break
-		}
+	if sub.Weekday != nil {
 		sb.WriteString(repeatLineBreaks(2))
+		sb.WriteString(fmt.Sprintf("<b>📅 День:</b> %s", weekDayLocale[*sub.Weekday]))
+	}
+
+	if sub.PreferredTimes != nil {
+		sb.WriteString(repeatLineBreaks(2))
+		sb.WriteString(fmt.Sprintf("<b>🕐 Время:</b>"))
+		for _, prefTime := range sub.PreferredTimes {
+			sb.WriteString(fmt.Sprintf("<b>%s</b>", timeStartToLesson[prefTime.TimeStart]))
+		}
 	}
 	return sb.String()
 }
 
-func permissionDeniedErrorMessage() string {
+func emptySubsListMsg() string {
+	var sb strings.Builder
+	sb.WriteString("<b>🔍 У вас нет подписок на лабы</b>")
+	sb.WriteString(repeatLineBreaks(2))
+	sb.WriteString("Используйте команду /sub для создания подписки")
+	return sb.String()
+}
+
+func permissionDeniedErrorMsg() string {
 	var sb strings.Builder
 	sb.WriteString("<b>❌ Доступ запрещён. Команда доступна только для разработчика</b>")
 	return sb.String()
 }
 
-func statsSuccessMessage(snapshot *metrics.Metrics) string {
+func statsMsg(snapshot *metrics.Metrics) string {
 	uptime := time.Since(snapshot.StartTime)
 	var sb strings.Builder
 	sb.WriteString("<b>📊 Статистика сервиса</b>")
@@ -286,29 +251,30 @@ func statsSuccessMessage(snapshot *metrics.Metrics) string {
 	return sb.String()
 }
 
-var timeLessonMap = map[string]string{
-	"08:50": "1️⃣ 08:50 - 10:20",
-	"10:35": "2️⃣ 10:35 - 12:05",
-	"12:35": "3️⃣ 12:35 - 14:05",
-	"14:15": "4️⃣ 14:15 - 15:45",
-	"15:55": "5️⃣ 15:55 - 17:20",
-	"17:30": "6️⃣ 17:30 - 19:00",
-	"19:10": "7️⃣ 19:10 - 20:30",
-	"20:40": "8️⃣ 20:40 - 22:00",
+func genericServiceErrorMsg() string {
+	var sb strings.Builder
+	sb.WriteString("<b>❌ Произошла ошибка сервиса. Попробуйте позже</b>")
+	return sb.String()
 }
 
-func notifySuccessMessage(notif *model.Notification) string {
+func unsubSuccessMsg() string {
+	var sb strings.Builder
+	sb.WriteString("<b>✅ Вы больше не подписаны на эту лабу</b>")
+	return sb.String()
+}
+
+func notifySuccessMessage(notif *notification.Notification) string {
 	slot := &notif.Slot
 	var sb strings.Builder
 	sb.WriteString("<b>🔥 Появилась запись!</b>")
 	sb.WriteString(repeatLineBreaks(3))
-	longName := slot.LabName
-	if slot.LabOrder != 0 {
-		longName += fmt.Sprintf(" (%d-ое место)", slot.LabOrder)
+	longName := slot.Name
+	if slot.Order != 0 {
+		longName += fmt.Sprintf(" (%d-ое место)", slot.Order)
 	}
-	sb.WriteString(fmt.Sprintf("<b>📚 Лаба №%d. %s</b>", slot.LabNumber, longName))
+	sb.WriteString(fmt.Sprintf("<b>📚 Лаба №%d. %s</b>", slot.Number, longName))
 	sb.WriteString(repeatLineBreaks(2))
-	sb.WriteString(fmt.Sprintf("<b>🚪 Аудитория №%d</b>", slot.LabAuditorium))
+	sb.WriteString(fmt.Sprintf("<b>🚪 Аудитория №%d</b>", slot.Auditorium))
 	sb.WriteString(repeatLineBreaks(2))
 	sb.WriteString("<b>🗓️ Когда:</b>")
 	sb.WriteString(repeatLineBreaks(1))
@@ -316,42 +282,36 @@ func notifySuccessMessage(notif *model.Notification) string {
 	return sb.String()
 }
 
-func writeSlotsInfo(slot *model.Slot, sb *strings.Builder, preferredTimes []model.PreferredTime) {
-	available := formatAvailableSlots(slot.Available)
+func writeSlotsInfo(slot *polling.Slot, sb *strings.Builder, preferredTimes notification.PreferredTimes) {
+	// Группируем слоты по датам
+	available := groupSlotsByDate(slot.TimesTeachers)
 
 	keys := sortDatesByPreference(available, preferredTimes)
 
-	preferredSet := make(map[string]bool)
-	for _, pt := range preferredTimes {
-		key := fmt.Sprintf("%d_%s", pt.Weekday, pt.DayTime)
-		preferredSet[key] = true
-	}
+	// Создаём set предпочитаемых слотов (weekday + время)
+	preferredSet := buildPreferredSet(preferredTimes)
 
 	for _, k := range keys {
-		val := available[k]
-		parsedTime, _ := time.Parse("2006-01-02", k)
-		relativeDate := formatDateRelative(parsedTime, time.Now())
+		teachers := available[k]
+		parsedDate, _ := time.Parse("2006-01-02", k)
+		relativeDate := formatDateRelative(parsedDate, time.Now())
 
 		sb.WriteString(fmt.Sprintf("<b>⠀⠀%s:</b>", relativeDate))
 		sb.WriteString(repeatLineBreaks(1))
 
-		sortedSlots := sortSlotsByPreference(val, preferredTimes, parsedTime.Weekday())
+		sortedSlots := sortSlotsByPreference(teachers, preferredTimes, parsedDate.Weekday())
 
-		for idx, v := range sortedSlots {
-			timeStart := v.Time.Format("15:04")
-			timePart := timeLessonMap[timeStart]
-			teacherPart := make([]string, len(v.Teachers))
-			for idx, teacher := range v.Teachers {
-				teacherPart[idx] = teacher.Name
-			}
+		for idx, slotInfo := range sortedSlots {
+			timeStart := slotInfo.Time.Format("15:04")
+			timePart := timeStartToLesson[timeStart]
 
-			preferredKey := fmt.Sprintf("%d_%s", parsedTime.Weekday(), timeStart)
+			preferredKey := fmt.Sprintf("%d_%s", parsedDate.Weekday(), timeStart)
 			isPreferredSlot := preferredSet[preferredKey]
 
 			if isPreferredSlot {
-				sb.WriteString(fmt.Sprintf("<b>⠀⠀%s %s ⭐️Ваше время</b>", timePart, strings.Join(teacherPart, ", ")))
+				sb.WriteString(fmt.Sprintf("<b>⠀⠀%s %s ⭐️Ваше время</b>", timePart, strings.Join(slotInfo.Teachers, ", ")))
 			} else {
-				sb.WriteString(fmt.Sprintf("<b>⠀⠀%s %s</b>", timePart, strings.Join(teacherPart, ", ")))
+				sb.WriteString(fmt.Sprintf("<b>⠀⠀%s %s</b>", timePart, strings.Join(slotInfo.Teachers, ", ")))
 			}
 
 			if idx != len(sortedSlots)-1 {
@@ -362,20 +322,75 @@ func writeSlotsInfo(slot *model.Slot, sb *strings.Builder, preferredTimes []mode
 	}
 }
 
-func sortDatesByPreference(available map[string][]model.TimeTeachers, preferredTimes []model.PreferredTime) []string {
+// SlotInfo содержит информацию о конкретном временном слоте
+type SlotInfo struct {
+	Time     time.Time
+	Teachers []string
+}
+
+// groupSlotsByDate группирует слоты по датам в формате "2006-01-02"
+func groupSlotsByDate(timesTeachers map[time.Time][]string) map[string][]SlotInfo {
+	grouped := make(map[string][]SlotInfo)
+
+	for t, teachers := range timesTeachers {
+		dateKey := t.Format("2006-01-02")
+		grouped[dateKey] = append(grouped[dateKey], SlotInfo{
+			Time:     t,
+			Teachers: teachers,
+		})
+	}
+
+	return grouped
+}
+
+// buildPreferredSet создаёт set предпочитаемых временных слотов
+func buildPreferredSet(preferredTimes notification.PreferredTimes) map[string]bool {
+	preferredSet := make(map[string]bool)
+
+	for weekday, timeRanges := range preferredTimes {
+		for _, tr := range timeRanges {
+			// Проверяем, попадает ли конкретное время в диапазон
+			// Сохраняем начало диапазона как ключ
+			key := fmt.Sprintf("%d_%s", weekday, tr.TimeStart)
+			preferredSet[key] = true
+		}
+	}
+
+	return preferredSet
+}
+
+// isTimeInRange проверяет, попадает ли время в один из предпочитаемых диапазонов
+func isTimeInRange(timeStr string, timeRanges []subscription.TimeRange) bool {
+	for _, tr := range timeRanges {
+		if timeStr >= tr.TimeStart && timeStr <= tr.TimeEnd {
+			return true
+		}
+	}
+	return false
+}
+
+func sortDatesByPreference(available map[string][]SlotInfo, preferredTimes notification.PreferredTimes) []string {
 	keys := make([]string, 0, len(available))
 	for k := range available {
 		keys = append(keys, k)
 	}
 
 	preferredWeekdays := make(map[time.Weekday]bool)
-	for _, pt := range preferredTimes {
-		preferredWeekdays[pt.Weekday] = true
+	for weekday := range preferredTimes {
+		preferredWeekdays[weekday] = true
 	}
 
 	sort.Slice(keys, func(i, j int) bool {
-		dateI, _ := time.Parse("2006-01-02", keys[i])
-		dateJ, _ := time.Parse("2006-01-02", keys[j])
+		dateI, errI := time.Parse("2006-01-02", keys[i])
+		dateJ, errJ := time.Parse("2006-01-02", keys[j])
+
+		// Если ошибка парсинга, отправляем в конец
+		if errI != nil {
+			return false
+		}
+		if errJ != nil {
+			return true
+		}
 
 		isPreferredI := preferredWeekdays[dateI.Weekday()]
 		isPreferredJ := preferredWeekdays[dateJ.Weekday()]
@@ -393,32 +408,28 @@ func sortDatesByPreference(available map[string][]model.TimeTeachers, preferredT
 	return keys
 }
 
-func sortSlotsByPreference(slots []model.TimeTeachers, preferredTimes []model.PreferredTime, dateWeekday time.Weekday) []model.TimeTeachers {
-	sorted := make([]model.TimeTeachers, len(slots))
+func sortSlotsByPreference(slots []SlotInfo, preferredTimes notification.PreferredTimes, dateWeekday time.Weekday) []SlotInfo {
+	sorted := make([]SlotInfo, len(slots))
 	copy(sorted, slots)
 
-	// Собираем предпочитаемые времена для этого дня недели
-	preferredDayTimes := make(map[string]bool)
-	for _, pt := range preferredTimes {
-		if pt.Weekday == dateWeekday {
-			preferredDayTimes[pt.DayTime] = true
-		}
-	}
+	// Получаем предпочитаемые диапазоны времени для этого дня недели
+	timeRanges, hasPreferences := preferredTimes[dateWeekday]
 
-	if len(preferredDayTimes) == 0 {
+	if !hasPreferences || len(timeRanges) == 0 {
+		// Если нет предпочтений, просто сортируем по времени
 		sort.Slice(sorted, func(i, j int) bool {
 			return sorted[i].Time.Before(sorted[j].Time)
 		})
 		return sorted
 	}
-
 	sort.Slice(sorted, func(i, j int) bool {
 		timeI := sorted[i].Time.Format("15:04")
 		timeJ := sorted[j].Time.Format("15:04")
 
-		isPreferredI := preferredDayTimes[timeI]
-		isPreferredJ := preferredDayTimes[timeJ]
+		isPreferredI := isTimeInRange(timeI, timeRanges)
+		isPreferredJ := isTimeInRange(timeJ, timeRanges)
 
+		// Предпочитаемые слоты идут первыми
 		if isPreferredI && !isPreferredJ {
 			return true
 		}
@@ -426,6 +437,7 @@ func sortSlotsByPreference(slots []model.TimeTeachers, preferredTimes []model.Pr
 			return false
 		}
 
+		// Если оба предпочитаемые или оба нет - сортируем по времени
 		return sorted[i].Time.Before(sorted[j].Time)
 	})
 

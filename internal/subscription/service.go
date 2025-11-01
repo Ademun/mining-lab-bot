@@ -10,14 +10,15 @@ import (
 	"github.com/Ademun/mining-lab-bot/pkg/errs"
 	"github.com/Ademun/mining-lab-bot/pkg/logger"
 	"github.com/Ademun/mining-lab-bot/pkg/metrics"
+	"github.com/google/uuid"
 	"github.com/mattn/go-sqlite3"
 )
 
 type Service interface {
 	Start(ctx context.Context) error
 	Subscribe(ctx context.Context, sub RequestSubscription) error
-	Unsubscribe(ctx context.Context, subUUID string) error
-	FindSubscriptionsByUserID(ctx context.Context, chatID int) ([]ResponseSubscription, error)
+	Unsubscribe(ctx context.Context, subUUID uuid.UUID) error
+	FindSubscriptionsByUserID(ctx context.Context, userID int) ([]ResponseSubscription, error)
 	FindUsersBySlotInfo(ctx context.Context, slot polling.Slot) ([]ResponseUser, error)
 }
 
@@ -66,7 +67,7 @@ func isDuplicateError(err error) bool {
 	return false
 }
 
-func (s *subscriptionService) Unsubscribe(ctx context.Context, subUUID string) error {
+func (s *subscriptionService) Unsubscribe(ctx context.Context, subUUID uuid.UUID) error {
 	success, err := s.subRepo.Delete(ctx, subUUID)
 	if err != nil {
 		slog.Error("Failed to delete subscription", "subUUID", subUUID, "err", err)

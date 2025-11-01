@@ -13,14 +13,17 @@ import (
 type ConversationStep string
 
 const (
-	StepIdle                    ConversationStep = "idle"
-	StepAwaitingLabType         ConversationStep = "awaiting_lab_type"
-	StepAwaitingLabNumber       ConversationStep = "awaiting_lab_number"
-	StepAwaitingLabAuditorium   ConversationStep = "awaiting_lab_auditorium"
-	StepAwaitingLabDomain       ConversationStep = "awaiting_lab_domain"
-	StepAwaitingLabWeekday      ConversationStep = "awaiting_lab_weekday"
-	StepAwaitingLabLessons      ConversationStep = "awaiting_lab_lessons"
-	StepAwaitingLabConfirmation ConversationStep = "awaiting_lab_confirmation"
+	StepIdle ConversationStep = "idle"
+	// /sub chain
+	StepAwaitingLabType                 ConversationStep = "awaiting_lab_type"
+	StepAwaitingLabNumber               ConversationStep = "awaiting_lab_number"
+	StepAwaitingLabAuditorium           ConversationStep = "awaiting_lab_auditorium"
+	StepAwaitingLabDomain               ConversationStep = "awaiting_lab_domain"
+	StepAwaitingLabWeekday              ConversationStep = "awaiting_lab_weekday"
+	StepAwaitingLabLessons              ConversationStep = "awaiting_lab_lessons"
+	StepAwaitingSubCreationConfirmation ConversationStep = "awaiting_sub_creation_confirmation"
+	// /unsub chain
+	StepAwaitingListingSubsAction ConversationStep = "awaiting_listing_action"
 )
 
 type HandlerFunc func(ctx context.Context, api *bot.Bot, update *models.Update, state *State)
