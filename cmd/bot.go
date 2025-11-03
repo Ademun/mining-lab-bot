@@ -3,11 +3,13 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/Ademun/mining-lab-bot/cmd/fsm"
 	"github.com/Ademun/mining-lab-bot/internal/notification"
 	"github.com/Ademun/mining-lab-bot/internal/subscription"
 	"github.com/Ademun/mining-lab-bot/pkg/config"
+	"github.com/Ademun/mining-lab-bot/pkg/logger"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 	"github.com/redis/go-redis/v9"
@@ -87,4 +89,48 @@ func (b *telegramBot) SendNotification(ctx context.Context, notif notification.N
 
 func (b *telegramBot) SetNotificationService(svc notification.Service) {
 	b.notifService = svc
+}
+
+func (b *telegramBot) SendMessage(ctx context.Context, params *bot.SendMessageParams) {
+	if _, err := b.api.SendMessage(ctx, params); err != nil {
+		slog.Error("Failed to send message",
+			"error", err,
+			"params", params)
+		b.api.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID: params.ChatID,
+			Text:   genericServiceErrorMsg(),
+		})
+	}
+}
+
+func (b *telegramBot) AnswerCallbackQuery(ctx context.Context, params *bot.AnswerCallbackQueryParams) {
+	if _, err := b.api.AnswerCallbackQuery(ctx, params); err != nil {
+		slog.Error("Failed to answer callback query",
+			"error", err,
+			"params", params)
+	}
+}
+
+func (b *telegramBot) EditMessageReplyMarkup(ctx context.Context, params *bot.EditMessageReplyMarkupParams) {
+	if _, err := b.api.EditMessageReplyMarkup(ctx, params); err != nil {
+		slog.Error("Failed to edit message reply markup",
+			"error", err,
+			"params", params)
+	}
+}
+
+func (b *telegramBot) TryTransition(ctx context.Context, api *bot.Bot, userID int64, newStep fsm.ConversationStep, newData fsm.StateData) {
+	if err := b.router.Transition(ctx, userID, newStep, newData); err != nil {
+		slog.Error("State transition failed",
+			"error", err,
+			"user_id", userID,
+			"new_step", newStep,
+			"service", logger.TelegramBot)
+
+		b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID:    userID,
+			Text:      genericServiceErrorMsg(),
+			ParseMode: models.ParseModeHTML,
+		})
+	}
 }

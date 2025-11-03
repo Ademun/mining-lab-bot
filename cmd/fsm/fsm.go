@@ -17,31 +17,22 @@ type FSM struct {
 }
 
 type State struct {
-	Step ConversationStep       `json:"step"`
-	Data map[string]interface{} `json:"data"`
+	Step ConversationStep `json:"step"`
+	Data StateData        `json:"data"`
 }
 
 func NewFSM(client *redis.Client) *FSM {
-	slog.Info("FSM instance created", "service", logger.TelegramBot)
 	return &FSM{client: client}
 }
 
 func (f *FSM) GetState(ctx context.Context, userID int64) (*State, error) {
 	key := f.makeKey(userID)
 
-	slog.Debug("Getting user state",
-		"user_id", userID,
-		"key", key,
-		"service", logger.TelegramBot)
-
 	data, err := f.client.Get(ctx, key).Bytes()
 	if errors.Is(err, redis.Nil) {
-		slog.Debug("State not found, returning default",
-			"user_id", userID,
-			"service", logger.TelegramBot)
 		return &State{
 			Step: StepIdle,
-			Data: make(map[string]interface{}),
+			Data: &IdleData{},
 		}, nil
 	}
 	if err != nil {
@@ -53,8 +44,11 @@ func (f *FSM) GetState(ctx context.Context, userID int64) (*State, error) {
 		return nil, err
 	}
 
-	var state State
-	if err := json.Unmarshal(data, &state); err != nil {
+	var wrapper struct {
+		Step ConversationStep `json:"step"`
+		Data json.RawMessage  `json:"data"`
+	}
+	if err := json.Unmarshal(data, &wrapper); err != nil {
 		slog.Error("Failed to unmarshal state",
 			"error", err,
 			"user_id", userID,
@@ -63,21 +57,24 @@ func (f *FSM) GetState(ctx context.Context, userID int64) (*State, error) {
 		return nil, err
 	}
 
-	slog.Debug("State retrieved successfully",
-		"user_id", userID,
-		"step", state.Step,
-		"service", logger.TelegramBot)
+	stateData := dataTypeForStep(wrapper.Step)
+	if err := json.Unmarshal(wrapper.Data, stateData); err != nil {
+		slog.Error("Failed to unmarshal state",
+			"error", err,
+			"user_id", userID,
+			"data", string(data),
+			"service", logger.TelegramBot)
+		return nil, err
+	}
 
-	return &state, nil
+	return &State{
+		Step: wrapper.Step,
+		Data: stateData,
+	}, nil
 }
 
 func (f *FSM) SetStep(ctx context.Context, userID int64, step ConversationStep) error {
 	key := f.makeKey(userID)
-
-	slog.Debug("Setting conversation step",
-		"user_id", userID,
-		"step", step,
-		"service", logger.TelegramBot)
 
 	state, err := f.GetState(ctx, userID)
 	if err != nil {
@@ -87,8 +84,6 @@ func (f *FSM) SetStep(ctx context.Context, userID int64, step ConversationStep) 
 			"service", logger.TelegramBot)
 		return err
 	}
-
-	oldStep := state.Step
 	state.Step = step
 
 	data, err := json.Marshal(state)
@@ -110,22 +105,11 @@ func (f *FSM) SetStep(ctx context.Context, userID int64, step ConversationStep) 
 		return err
 	}
 
-	slog.Info("Conversation step updated",
-		"user_id", userID,
-		"old_step", oldStep,
-		"new_step", step,
-		"service", logger.TelegramBot)
-
 	return nil
 }
 
-func (f *FSM) UpdateData(ctx context.Context, userID int64, data map[string]interface{}) error {
+func (f *FSM) UpdateData(ctx context.Context, userID int64, data StateData) error {
 	key := f.makeKey(userID)
-
-	slog.Debug("Updating state data",
-		"user_id", userID,
-		"data_keys", getMapKeys(data),
-		"service", logger.TelegramBot)
 
 	state, err := f.GetState(ctx, userID)
 	if err != nil {
@@ -136,9 +120,7 @@ func (f *FSM) UpdateData(ctx context.Context, userID int64, data map[string]inte
 		return err
 	}
 
-	for k, v := range data {
-		state.Data[k] = v
-	}
+	state.Data = data
 
 	newData, err := json.Marshal(state)
 	if err != nil {
@@ -157,46 +139,11 @@ func (f *FSM) UpdateData(ctx context.Context, userID int64, data map[string]inte
 		return err
 	}
 
-	slog.Info("State data updated successfully",
-		"user_id", userID,
-		"updated_keys", getMapKeys(data),
-		"service", logger.TelegramBot)
-
 	return nil
-}
-
-func (f *FSM) GetData(ctx context.Context, userID int64, key string) (interface{}, error) {
-	slog.Debug("Getting specific data key",
-		"user_id", userID,
-		"key", key,
-		"service", logger.TelegramBot)
-
-	state, err := f.GetState(ctx, userID)
-	if err != nil {
-		slog.Error("Failed to get state for data retrieval",
-			"error", err,
-			"user_id", userID,
-			"key", key,
-			"service", logger.TelegramBot)
-		return nil, err
-	}
-
-	value := state.Data[key]
-	slog.Debug("Data key retrieved",
-		"user_id", userID,
-		"key", key,
-		"has_value", value != nil,
-		"service", logger.TelegramBot)
-
-	return value, nil
 }
 
 func (f *FSM) ResetState(ctx context.Context, userID int64) error {
 	key := f.makeKey(userID)
-
-	slog.Info("Resetting user state",
-		"user_id", userID,
-		"service", logger.TelegramBot)
 
 	state, err := f.GetState(ctx, userID)
 	if err != nil {
@@ -207,9 +154,8 @@ func (f *FSM) ResetState(ctx context.Context, userID int64) error {
 		return err
 	}
 
-	oldStep := state.Step
 	state.Step = StepIdle
-	state.Data = make(map[string]interface{})
+	state.Data = &IdleData{}
 
 	data, err := json.Marshal(state)
 	if err != nil {
@@ -228,22 +174,9 @@ func (f *FSM) ResetState(ctx context.Context, userID int64) error {
 		return err
 	}
 
-	slog.Info("User state reset successfully",
-		"user_id", userID,
-		"old_step", oldStep,
-		"service", logger.TelegramBot)
-
 	return nil
 }
 
 func (f *FSM) makeKey(userID int64) string {
 	return fmt.Sprintf("fsm:%d:state", userID)
-}
-
-func getMapKeys(m map[string]interface{}) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	return keys
 }

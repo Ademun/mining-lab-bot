@@ -54,9 +54,11 @@ func askLabNumberMsg() string {
 	return sb.String()
 }
 
-func labNumberValidationErrorMsg() string {
+func validationErrorMsg(cause string) string {
 	var sb strings.Builder
-	sb.WriteString("<b>❌ Номер лабы должен быть числом в диапазоне от 1 до 999</b>")
+	sb.WriteString("<b>❌ Ошибка валидации:</b>")
+	sb.WriteString(repeatLineBreaks(1))
+	sb.WriteString(fmt.Sprintf("<b>%s</b>", cause))
 	return sb.String()
 }
 
@@ -252,9 +254,7 @@ func statsMsg(snapshot *metrics.Metrics) string {
 }
 
 func genericServiceErrorMsg() string {
-	var sb strings.Builder
-	sb.WriteString("<b>❌ Произошла ошибка сервиса. Попробуйте позже</b>")
-	return sb.String()
+	return "<b>❌ Произошла ошибка сервиса. Попробуйте позже</b>"
 }
 
 func unsubSuccessMsg() string {

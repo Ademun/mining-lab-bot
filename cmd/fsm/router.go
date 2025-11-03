@@ -10,23 +10,7 @@ import (
 	"github.com/go-telegram/bot/models"
 )
 
-type ConversationStep string
-
-const (
-	StepIdle ConversationStep = "idle"
-	// /sub chain
-	StepAwaitingLabType                 ConversationStep = "awaiting_lab_type"
-	StepAwaitingLabNumber               ConversationStep = "awaiting_lab_number"
-	StepAwaitingLabAuditorium           ConversationStep = "awaiting_lab_auditorium"
-	StepAwaitingLabDomain               ConversationStep = "awaiting_lab_domain"
-	StepAwaitingLabWeekday              ConversationStep = "awaiting_lab_weekday"
-	StepAwaitingLabLessons              ConversationStep = "awaiting_lab_lessons"
-	StepAwaitingSubCreationConfirmation ConversationStep = "awaiting_sub_creation_confirmation"
-	// /unsub chain
-	StepAwaitingListingSubsAction ConversationStep = "awaiting_listing_action"
-)
-
-type HandlerFunc func(ctx context.Context, api *bot.Bot, update *models.Update, state *State)
+type HandlerFunc func(ctx context.Context, api *bot.Bot, update *models.Update, state StateData)
 type Router struct {
 	fsm      *FSM
 	handlers map[ConversationStep]HandlerFunc
@@ -68,7 +52,7 @@ func (r *Router) Middleware(next bot.HandlerFunc) bot.HandlerFunc {
 		r.mu.RUnlock()
 
 		if exists {
-			handler(ctx, b, update, state)
+			handler(ctx, b, update, state.Data)
 			return
 		}
 
@@ -79,7 +63,7 @@ func (r *Router) Middleware(next bot.HandlerFunc) bot.HandlerFunc {
 	}
 }
 
-func (r *Router) Transition(ctx context.Context, userID int64, nextStep ConversationStep, data map[string]interface{}) error {
+func (r *Router) Transition(ctx context.Context, userID int64, nextStep ConversationStep, data StateData) error {
 	if err := r.fsm.SetStep(ctx, userID, nextStep); err != nil {
 		slog.Error("Failed to update conversation step", "error", err, logger.TelegramBot)
 		if err := r.fsm.ResetState(ctx, userID); err != nil {
