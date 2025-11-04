@@ -135,6 +135,7 @@ func (s *pollingService) poll(ctx context.Context) {
 			}
 
 			for _, slot := range slots {
+				recordSlot(slot.Type)
 				sem <- struct{}{}
 				wg.Add(1)
 				go func(slot Slot) {
