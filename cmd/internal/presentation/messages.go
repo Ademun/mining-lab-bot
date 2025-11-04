@@ -8,7 +8,6 @@ import (
 	"github.com/Ademun/mining-lab-bot/cmd/internal/utils"
 	"github.com/Ademun/mining-lab-bot/internal/notification"
 	"github.com/Ademun/mining-lab-bot/internal/subscription"
-	"github.com/Ademun/mining-lab-bot/pkg/metrics"
 )
 
 func HelpCmdMsg() string {
@@ -37,55 +36,6 @@ func StartCmdMsg() string {
 	sb.WriteString(repeatLineBreaks(3))
 	sb.WriteString("<b>Используй /help для просмотра доступных команд</b>")
 	return sb.String()
-}
-
-func StatsCmdMsg(snapshot *metrics.Metrics) string {
-	uptime := time.Since(snapshot.StartTime)
-	var sb strings.Builder
-	sb.WriteString("<b>📊 Статистика сервиса</b>")
-	sb.WriteString(repeatLineBreaks(2))
-	sb.WriteString("<b>🕐 Общее время работы:</b> ")
-	sb.WriteString(utils.FormatDuration(uptime))
-	sb.WriteString(repeatLineBreaks(2))
-	sb.WriteString("<b>🔍 Опросы:</b>")
-	sb.WriteString(repeatLineBreaks(1))
-	sb.WriteString(fmt.Sprintf("Всего опросов: <b>%d</b>",
-		snapshot.PollingMetrics.TotalPolls))
-	sb.WriteString(repeatLineBreaks(1))
-	sb.WriteString(fmt.Sprintf("Режим: <b>%s</b>",
-		utils.FormatPollingMode(snapshot.PollingMetrics.Mode)))
-	sb.WriteString(repeatLineBreaks(1))
-	sb.WriteString(fmt.Sprintf("Ошибки парсинга: <b>%d</b>",
-		snapshot.PollingMetrics.ParsingErrors))
-	sb.WriteString(repeatLineBreaks(1))
-	sb.WriteString(fmt.Sprintf("Ошибки получения: <b>%d</b>",
-		snapshot.PollingMetrics.FetchErrors))
-	sb.WriteString(repeatLineBreaks(1))
-	sb.WriteString(fmt.Sprintf("Последнее время опроса: <b>%s</b>",
-		snapshot.PollingMetrics.LastPollingTime.Round(time.Millisecond)))
-	sb.WriteString(repeatLineBreaks(1))
-	sb.WriteString(fmt.Sprintf("Количество слотов: <b>%d</b>",
-		snapshot.PollingMetrics.LastSlotNumber))
-	sb.WriteString(repeatLineBreaks(1))
-	sb.WriteString(fmt.Sprintf("Количество айдишников сервиса <b>%d</b>", snapshot.PollingMetrics.LastIDNumber))
-	sb.WriteString(repeatLineBreaks(2))
-	sb.WriteString("<b>🔔 Уведомления:</b>")
-	sb.WriteString(repeatLineBreaks(1))
-	sb.WriteString(fmt.Sprintf("Всего уведомлений: <b>%d</b>",
-		snapshot.NotificationMetrics.TotalNotifications))
-	sb.WriteString(repeatLineBreaks(1))
-	sb.WriteString(fmt.Sprintf("  Размер кеша: <b>%d</b>",
-		snapshot.NotificationMetrics.CacheLength))
-	sb.WriteString(repeatLineBreaks(2))
-	sb.WriteString("<b>📝 Подписки:</b>")
-	sb.WriteString(repeatLineBreaks(1))
-	sb.WriteString(fmt.Sprintf("  Активных подписок: <b>%d</b>",
-		snapshot.SubscriptionMetrics.TotalSubscriptions))
-	return sb.String()
-}
-
-func PermissionDeniedMsg() string {
-	return "<b>❌ Эта команда доступна только разработчику</b>"
 }
 
 func GenericServiceErrorMsg() string {
