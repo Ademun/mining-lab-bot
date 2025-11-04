@@ -6,6 +6,8 @@ import (
 	"log/slog"
 
 	"github.com/Ademun/mining-lab-bot/cmd/fsm"
+	"github.com/Ademun/mining-lab-bot/cmd/internal/middleware"
+	"github.com/Ademun/mining-lab-bot/cmd/internal/presentation"
 	"github.com/Ademun/mining-lab-bot/internal/notification"
 	"github.com/Ademun/mining-lab-bot/internal/subscription"
 	"github.com/Ademun/mining-lab-bot/pkg/config"
@@ -17,8 +19,12 @@ import (
 
 type Bot interface {
 	Start(ctx context.Context)
-	SendNotification(ctx context.Context, notif notification.Notification)
 	SetNotificationService(svc notification.Service)
+	SendMessage(ctx context.Context, params *bot.SendMessageParams)
+	SendNotification(ctx context.Context, notif notification.Notification)
+	AnswerCallbackQuery(ctx context.Context, params *bot.AnswerCallbackQueryParams)
+	EditMessageReplyMarkup(ctx context.Context, params *bot.EditMessageReplyMarkupParams)
+	TryTransition(ctx context.Context, userID int64, newStep fsm.ConversationStep, newData fsm.StateData)
 }
 
 type telegramBot struct {
@@ -32,7 +38,7 @@ type telegramBot struct {
 func NewBot(subService subscription.Service, opts *config.TelegramConfig, redis *redis.Client) (Bot, error) {
 	router := fsm.NewRouter(fsm.NewFSM(redis))
 	botOpts := []bot.Option{
-		bot.WithMiddlewares(typingMiddleware, router.Middleware),
+		bot.WithMiddlewares(middleware.CommandLoggingMiddleware, middleware.TypingMiddleware, router.Middleware),
 		bot.WithDefaultHandler(handleDefault),
 	}
 	b, err := bot.New(opts.BotToken, botOpts...)
@@ -54,7 +60,7 @@ func (b *telegramBot) Start(ctx context.Context) {
 	b.api.RegisterHandler(bot.HandlerTypeMessageText, "help",
 		bot.MatchTypeCommandStartOnly, handleDefault)
 	b.api.RegisterHandler(bot.HandlerTypeMessageText, "sub",
-		bot.MatchTypeCommandStartOnly, b.handleCreatingSubscription)
+		bot.MatchTypeCommandStartOnly, b.handleSubscriptionCreation)
 	b.api.RegisterHandler(bot.HandlerTypeMessageText, "unsub",
 		bot.MatchTypeCommandStartOnly, b.handleListingSubscriptions)
 	b.api.RegisterHandler(bot.HandlerTypeMessageText, "list",
@@ -65,26 +71,11 @@ func (b *telegramBot) Start(ctx context.Context) {
 	b.router.RegisterHandler(fsm.StepAwaitingLabNumber, b.handleLabNumber)
 	b.router.RegisterHandler(fsm.StepAwaitingLabAuditorium, b.handleLabAuditorium)
 	b.router.RegisterHandler(fsm.StepAwaitingLabDomain, b.handleLabDomain)
-	b.router.RegisterHandler(fsm.StepAwaitingLabWeekday, b.handleLabWeekday)
-	b.router.RegisterHandler(fsm.StepAwaitingLabLessons, b.handleLabLessons)
+	b.router.RegisterHandler(fsm.StepAwaitingLabWeekday, b.handleWeekday)
+	b.router.RegisterHandler(fsm.StepAwaitingLabLessons, b.handleLessons)
 	b.router.RegisterHandler(fsm.StepAwaitingSubCreationConfirmation, b.handleSubCreationConfirmation)
 	b.router.RegisterHandler(fsm.StepAwaitingListingSubsAction, b.handleListingSubsAction)
 	go b.api.Start(ctx)
-}
-
-func (b *telegramBot) SendNotification(ctx context.Context, notif notification.Notification) {
-	targetUser := notif.UserID
-
-	hidePreview := true
-	b.api.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID: targetUser,
-		Text:   notifySuccessMessage(&notif),
-		LinkPreviewOptions: &models.LinkPreviewOptions{
-			IsDisabled: &hidePreview,
-		},
-		ReplyMarkup: createLinkKeyboard(notif.Slot.URL),
-		ParseMode:   models.ParseModeHTML,
-	})
 }
 
 func (b *telegramBot) SetNotificationService(svc notification.Service) {
@@ -98,9 +89,24 @@ func (b *telegramBot) SendMessage(ctx context.Context, params *bot.SendMessagePa
 			"params", params)
 		b.api.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: params.ChatID,
-			Text:   genericServiceErrorMsg(),
+			Text:   presentation.GenericServiceErrorMsg(),
 		})
 	}
+}
+
+func (b *telegramBot) SendNotification(ctx context.Context, notif notification.Notification) {
+	targetUser := notif.UserID
+
+	hidePreview := true
+	b.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID: targetUser,
+		Text:   presentation.NotifyMsg(&notif),
+		LinkPreviewOptions: &models.LinkPreviewOptions{
+			IsDisabled: &hidePreview,
+		},
+		ReplyMarkup: presentation.LinkKbd(notif.Slot.URL),
+		ParseMode:   models.ParseModeHTML,
+	})
 }
 
 func (b *telegramBot) AnswerCallbackQuery(ctx context.Context, params *bot.AnswerCallbackQueryParams) {
@@ -119,7 +125,7 @@ func (b *telegramBot) EditMessageReplyMarkup(ctx context.Context, params *bot.Ed
 	}
 }
 
-func (b *telegramBot) TryTransition(ctx context.Context, api *bot.Bot, userID int64, newStep fsm.ConversationStep, newData fsm.StateData) {
+func (b *telegramBot) TryTransition(ctx context.Context, userID int64, newStep fsm.ConversationStep, newData fsm.StateData) {
 	if err := b.router.Transition(ctx, userID, newStep, newData); err != nil {
 		slog.Error("State transition failed",
 			"error", err,
@@ -129,7 +135,7 @@ func (b *telegramBot) TryTransition(ctx context.Context, api *bot.Bot, userID in
 
 		b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID:    userID,
-			Text:      genericServiceErrorMsg(),
+			Text:      presentation.GenericServiceErrorMsg(),
 			ParseMode: models.ParseModeHTML,
 		})
 	}
