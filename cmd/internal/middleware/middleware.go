@@ -30,8 +30,10 @@ func TypingMiddleware(next bot.HandlerFunc) bot.HandlerFunc {
 func CommandLoggingMiddleware(next bot.HandlerFunc) bot.HandlerFunc {
 	return func(ctx context.Context, b *bot.Bot, update *models.Update) {
 		if update.Message != nil && strings.HasPrefix(update.Message.Text, "/") {
+			command := strings.Fields(update.Message.Text)[0]
+			recordCommand(command)
 			slog.Info("Received command",
-				"command", update.Message.Text,
+				"command", command,
 				"chat_id", update.Message.Chat.ID,
 				"user_id", update.Message.From.ID)
 		}
