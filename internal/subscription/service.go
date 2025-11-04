@@ -8,14 +8,11 @@ import (
 
 	"github.com/Ademun/mining-lab-bot/internal/polling"
 	"github.com/Ademun/mining-lab-bot/pkg/errs"
-	"github.com/Ademun/mining-lab-bot/pkg/logger"
-	"github.com/Ademun/mining-lab-bot/pkg/metrics"
 	"github.com/google/uuid"
 	"github.com/mattn/go-sqlite3"
 )
 
 type Service interface {
-	Start(ctx context.Context) error
 	Subscribe(ctx context.Context, sub RequestSubscription) error
 	Unsubscribe(ctx context.Context, subUUID uuid.UUID) error
 	FindSubscriptionsByUserID(ctx context.Context, userID int) ([]ResponseSubscription, error)
@@ -32,17 +29,6 @@ func New(repo Repo) Service {
 	}
 }
 
-func (s *subscriptionService) Start(ctx context.Context) error {
-	slog.Info("Starting", "service", logger.ServiceSubscription)
-	subs, err := s.subRepo.Count(ctx)
-	if err != nil {
-		return err
-	}
-	metrics.Global().RecordSubscriptionResults(subs)
-	slog.Info("Started", "service", logger.ServiceSubscription)
-	return nil
-}
-
 func (s *subscriptionService) Subscribe(ctx context.Context, sub RequestSubscription) error {
 	err := s.subRepo.Create(ctx, sub)
 	if err != nil {
@@ -52,7 +38,6 @@ func (s *subscriptionService) Subscribe(ctx context.Context, sub RequestSubscrip
 		slog.Error("Failed to create subscription", "sub", sub, "err", err)
 		return err
 	}
-	metrics.Global().RecordSubscriptionResults(1)
 	return nil
 }
 
@@ -68,15 +53,10 @@ func isDuplicateError(err error) bool {
 }
 
 func (s *subscriptionService) Unsubscribe(ctx context.Context, subUUID uuid.UUID) error {
-	success, err := s.subRepo.Delete(ctx, subUUID)
+	_, err := s.subRepo.Delete(ctx, subUUID)
 	if err != nil {
 		slog.Error("Failed to delete subscription", "subUUID", subUUID, "err", err)
 	}
-
-	if success {
-		metrics.Global().RecordSubscriptionResults(-1)
-	}
-
 	return err
 }
 
