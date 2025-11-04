@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 
+	"github.com/Ademun/mining-lab-bot/cmd/internal/presentation"
 	"github.com/Ademun/mining-lab-bot/pkg/metrics"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
@@ -16,7 +17,7 @@ func (b *telegramBot) handleStats(ctx context.Context, api *bot.Bot, update *mod
 	if int(userID) != adminID {
 		b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID:    userID,
-			Text:      permissionDeniedErrorMsg(),
+			Text:      presentation.PermissionDeniedMsg(),
 			ParseMode: models.ParseModeHTML,
 		})
 		return
@@ -26,7 +27,7 @@ func (b *telegramBot) handleStats(ctx context.Context, api *bot.Bot, update *mod
 
 	b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID:    userID,
-		Text:      statsMsg(snapshot),
+		Text:      presentation.StatsCmdMsg(snapshot),
 		ParseMode: models.ParseModeHTML,
 	})
 }

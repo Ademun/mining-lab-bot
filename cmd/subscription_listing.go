@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Ademun/mining-lab-bot/cmd/fsm"
+	"github.com/Ademun/mining-lab-bot/cmd/internal/presentation"
 	"github.com/Ademun/mining-lab-bot/pkg/logger"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
@@ -22,7 +23,7 @@ func (b *telegramBot) handleListingSubscriptions(ctx context.Context, api *bot.B
 	if err != nil {
 		b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID:    userID,
-			Text:      genericServiceErrorMsg(),
+			Text:      presentation.GenericServiceErrorMsg(),
 			ParseMode: models.ParseModeHTML,
 		})
 		return
@@ -31,7 +32,7 @@ func (b *telegramBot) handleListingSubscriptions(ctx context.Context, api *bot.B
 	if len(userSubs) == 0 {
 		b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID:    userID,
-			Text:      emptySubsListMsg(),
+			Text:      presentation.EmptySubListMsg(),
 			ParseMode: models.ParseModeHTML,
 		})
 		return
@@ -41,12 +42,12 @@ func (b *telegramBot) handleListingSubscriptions(ctx context.Context, api *bot.B
 		UserSubs: userSubs,
 	}
 
-	b.TryTransition(ctx, api, userID, fsm.StepAwaitingListingSubsAction, newData)
+	b.TryTransition(ctx, userID, fsm.StepAwaitingListingSubsAction, newData)
 	b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID:      userID,
-		Text:        viewSubResponseMsg(&userSubs[0]),
+		Text:        presentation.SubViewMsg(&userSubs[0]),
 		ParseMode:   models.ParseModeHTML,
-		ReplyMarkup: listSubsKbd(userSubs[0].UUID, 0, len(userSubs)),
+		ReplyMarkup: presentation.ListSubsKbd(userSubs[0].UUID, 0, len(userSubs)),
 	})
 }
 
@@ -55,9 +56,13 @@ func (b *telegramBot) handleListingSubsAction(ctx context.Context, api *bot.Bot,
 
 	newData, ok := data.(*fsm.SubscriptionListingFlowData)
 	if !ok {
+		slog.Error("Critical error: unable to assert flow data",
+			"data", data,
+			"service", logger.TelegramBot)
+		b.TryTransition(ctx, userID, fsm.StepIdle, &fsm.IdleData{})
 		b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: userID,
-			Text:   genericServiceErrorMsg(),
+			Text:   presentation.GenericServiceErrorMsg(),
 		})
 	}
 
@@ -65,7 +70,7 @@ func (b *telegramBot) handleListingSubsAction(ctx context.Context, api *bot.Bot,
 	if newIndex != nil && *newIndex > 0 && *newIndex < len(newData.UserSubs) {
 		b.EditMessageReplyMarkup(ctx, &bot.EditMessageReplyMarkupParams{
 			ChatID:      userID,
-			ReplyMarkup: listSubsKbd(newData.UserSubs[*newIndex].UUID, *newIndex, len(newData.UserSubs)),
+			ReplyMarkup: presentation.ListSubsKbd(newData.UserSubs[*newIndex].UUID, *newIndex, len(newData.UserSubs)),
 		})
 		return
 	}
@@ -74,7 +79,7 @@ func (b *telegramBot) handleListingSubsAction(ctx context.Context, api *bot.Bot,
 		if err := b.subscriptionService.Unsubscribe(ctx, *subUUID); err != nil {
 			b.SendMessage(ctx, &bot.SendMessageParams{
 				ChatID:    userID,
-				Text:      genericServiceErrorMsg(),
+				Text:      presentation.GenericServiceErrorMsg(),
 				ParseMode: models.ParseModeHTML,
 			})
 			return
@@ -91,14 +96,15 @@ func (b *telegramBot) handleListingSubsAction(ctx context.Context, api *bot.Bot,
 
 		b.EditMessageReplyMarkup(ctx, &bot.EditMessageReplyMarkupParams{
 			ChatID:      userID,
-			ReplyMarkup: listSubsKbd(newData.UserSubs[newIdx].UUID, newIdx, len(newData.UserSubs)),
+			ReplyMarkup: presentation.ListSubsKbd(newData.UserSubs[newIdx].UUID, newIdx, len(newData.UserSubs)),
 		})
 		b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID:    userID,
-			Text:      unsubSuccessMsg(),
+			Text:      presentation.UnsubSuccessMsg(),
 			ParseMode: models.ParseModeHTML,
 		})
 	}
+	b.TryTransition(ctx, userID, fsm.StepAwaitingListingSubsAction, newData)
 	b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
 		CallbackQueryID: update.CallbackQuery.ID,
 	})

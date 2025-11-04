@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 
+	"github.com/Ademun/mining-lab-bot/cmd/internal/presentation"
 	"github.com/Ademun/mining-lab-bot/pkg/logger"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
@@ -15,13 +16,17 @@ func handleDefault(ctx context.Context, api *bot.Bot, update *models.Update) {
 
 	if _, err := api.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID:    userID,
-		Text:      helpMsg(),
+		Text:      presentation.HelpCmdMsg(),
 		ParseMode: models.ParseModeHTML,
 	}); err != nil {
 		slog.Error("Failed to send help message",
 			"error", err,
 			"user_id", userID,
 			"service", logger.TelegramBot)
+		api.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID: userID,
+			Text:   presentation.GenericServiceErrorMsg(),
+		})
 	}
 }
 
@@ -31,7 +36,7 @@ func (b *telegramBot) handleStart(ctx context.Context, api *bot.Bot, update *mod
 
 	b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID:    userID,
-		Text:      startMsg(),
+		Text:      presentation.StartCmdMsg(),
 		ParseMode: models.ParseModeHTML,
 	})
 }

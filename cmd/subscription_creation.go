@@ -2,12 +2,16 @@ package cmd
 
 import (
 	"context"
+	"log/slog"
 	"strconv"
 	"strings"
 
 	"github.com/Ademun/mining-lab-bot/cmd/fsm"
+	"github.com/Ademun/mining-lab-bot/cmd/internal/presentation"
+	"github.com/Ademun/mining-lab-bot/cmd/internal/utils"
 	"github.com/Ademun/mining-lab-bot/internal/polling"
 	"github.com/Ademun/mining-lab-bot/internal/subscription"
+	"github.com/Ademun/mining-lab-bot/pkg/logger"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 )
@@ -19,13 +23,13 @@ func (b *telegramBot) handleSubscriptionCreation(ctx context.Context, api *bot.B
 		UserID: int(userID),
 	}
 
-	b.TryTransition(ctx, api, userID, fsm.StepAwaitingLabType, newData)
+	b.TryTransition(ctx, userID, fsm.StepAwaitingLabType, newData)
 
 	b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID:      userID,
-		Text:        askLabTypeMsg(),
+		Text:        presentation.AskLabTypeMsg(),
 		ParseMode:   models.ParseModeHTML,
-		ReplyMarkup: selectLabTypeKbd(),
+		ReplyMarkup: presentation.SelectLabTypeKbd(),
 	})
 }
 
@@ -35,18 +39,22 @@ func (b *telegramBot) handleLabType(ctx context.Context, api *bot.Bot, update *m
 
 	newData, ok := data.(*fsm.SubscriptionCreationFlowData)
 	if !ok {
+		slog.Error("Critical error: unable to assert flow data",
+			"data", data,
+			"service", logger.TelegramBot)
+		b.TryTransition(ctx, userID, fsm.StepIdle, &fsm.IdleData{})
 		b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: userID,
-			Text:   genericServiceErrorMsg(),
+			Text:   presentation.GenericServiceErrorMsg(),
 		})
 	}
 	newData.LabType = labType
 
-	b.TryTransition(ctx, api, userID, fsm.StepAwaitingLabNumber, newData)
+	b.TryTransition(ctx, userID, fsm.StepAwaitingLabNumber, newData)
 
 	b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID:    userID,
-		Text:      askLabNumberMsg(),
+		Text:      presentation.AskLabNumberMsg(),
 		ParseMode: models.ParseModeHTML,
 	})
 
@@ -63,35 +71,39 @@ func (b *telegramBot) handleLabNumber(ctx context.Context, api *bot.Bot, update 
 	if cause != "" {
 		b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: userID,
-			Text:   validationErrorMsg(cause),
+			Text:   presentation.ValidationErrorMsg(cause),
 		})
 		return
 	}
 
 	newData, ok := data.(*fsm.SubscriptionCreationFlowData)
 	if !ok {
+		slog.Error("Critical error: unable to assert flow data",
+			"data", data,
+			"service", logger.TelegramBot)
+		b.TryTransition(ctx, userID, fsm.StepIdle, &fsm.IdleData{})
 		b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: userID,
-			Text:   genericServiceErrorMsg(),
+			Text:   presentation.GenericServiceErrorMsg(),
 		})
 	}
 	newData.LabNumber = labNumber
 
 	switch newData.LabType {
 	case polling.LabTypePerformance:
-		b.TryTransition(ctx, api, userID, fsm.StepAwaitingLabAuditorium, newData)
+		b.TryTransition(ctx, userID, fsm.StepAwaitingLabAuditorium, newData)
 		b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID:    userID,
-			Text:      askLabAuditoriumMsg(),
+			Text:      presentation.AskLabAuditoriumMsg(),
 			ParseMode: models.ParseModeHTML,
 		})
 	case polling.LabTypeDefence:
-		b.TryTransition(ctx, api, userID, fsm.StepAwaitingLabDomain, newData)
+		b.TryTransition(ctx, userID, fsm.StepAwaitingLabDomain, newData)
 		b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID:      userID,
-			Text:        askLabDomainMsg(),
+			Text:        presentation.AskLabDomainMsg(),
 			ParseMode:   models.ParseModeHTML,
-			ReplyMarkup: selectLabDomainKbd(),
+			ReplyMarkup: presentation.SelectLabDomainKbd(),
 		})
 	}
 }
@@ -104,7 +116,7 @@ func (b *telegramBot) handleLabAuditorium(ctx context.Context, api *bot.Bot, upd
 	if cause != "" {
 		b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID:    userID,
-			Text:      validationErrorMsg(cause),
+			Text:      presentation.ValidationErrorMsg(cause),
 			ParseMode: models.ParseModeHTML,
 		})
 		return
@@ -112,19 +124,23 @@ func (b *telegramBot) handleLabAuditorium(ctx context.Context, api *bot.Bot, upd
 
 	newData, ok := data.(*fsm.SubscriptionCreationFlowData)
 	if !ok {
+		slog.Error("Critical error: unable to assert flow data",
+			"data", data,
+			"service", logger.TelegramBot)
+		b.TryTransition(ctx, userID, fsm.StepIdle, &fsm.IdleData{})
 		b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: userID,
-			Text:   genericServiceErrorMsg(),
+			Text:   presentation.GenericServiceErrorMsg(),
 		})
 	}
 	newData.LabAuditorium = &labAuditorium
 
-	b.TryTransition(ctx, api, userID, fsm.StepAwaitingLabWeekday, newData)
+	b.TryTransition(ctx, userID, fsm.StepAwaitingLabWeekday, newData)
 	b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID:      userID,
-		Text:        askLabWeekdayMsg(),
+		Text:        presentation.AskWeekdayMsg(),
 		ParseMode:   models.ParseModeHTML,
-		ReplyMarkup: selectLabWeekdayKbd(),
+		ReplyMarkup: presentation.SelectWeekdayKbd(),
 	})
 }
 
@@ -134,19 +150,23 @@ func (b *telegramBot) handleLabDomain(ctx context.Context, api *bot.Bot, update 
 
 	newData, ok := data.(*fsm.SubscriptionCreationFlowData)
 	if !ok {
+		slog.Error("Critical error: unable to assert flow data",
+			"data", data,
+			"service", logger.TelegramBot)
+		b.TryTransition(ctx, userID, fsm.StepIdle, &fsm.IdleData{})
 		b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: userID,
-			Text:   genericServiceErrorMsg(),
+			Text:   presentation.GenericServiceErrorMsg(),
 		})
 	}
 	newData.LabDomain = labDomain
 
-	b.TryTransition(ctx, api, userID, fsm.StepAwaitingLabWeekday, newData)
+	b.TryTransition(ctx, userID, fsm.StepAwaitingLabWeekday, newData)
 	b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID:      userID,
-		Text:        askLabWeekdayMsg(),
+		Text:        presentation.AskWeekdayMsg(),
 		ParseMode:   models.ParseModeHTML,
-		ReplyMarkup: selectLabWeekdayKbd(),
+		ReplyMarkup: presentation.SelectWeekdayKbd(),
 	})
 	b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
 		CallbackQueryID: update.CallbackQuery.ID,
@@ -159,19 +179,23 @@ func (b *telegramBot) handleWeekday(ctx context.Context, api *bot.Bot, update *m
 
 	newData, ok := data.(*fsm.SubscriptionCreationFlowData)
 	if !ok {
+		slog.Error("Critical error: unable to assert flow data",
+			"data", data,
+			"service", logger.TelegramBot)
+		b.TryTransition(ctx, userID, fsm.StepIdle, &fsm.IdleData{})
 		b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: userID,
-			Text:   genericServiceErrorMsg(),
+			Text:   presentation.GenericServiceErrorMsg(),
 		})
 	}
 	newData.Weekday = weekday
 
-	b.TryTransition(ctx, api, userID, fsm.StepAwaitingLabLessons, newData)
+	b.TryTransition(ctx, userID, fsm.StepAwaitingLabLessons, newData)
 	b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID:      userID,
-		Text:        askLabLessonsMsg(),
+		Text:        presentation.AskLessonsMsg(),
 		ParseMode:   models.ParseModeHTML,
-		ReplyMarkup: selectLessonKbd(defaultLessons),
+		ReplyMarkup: presentation.SelectLessonKbd(utils.DefaultLessons),
 	})
 	b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
 		CallbackQueryID: update.CallbackQuery.ID,
@@ -184,21 +208,25 @@ func (b *telegramBot) handleLessons(ctx context.Context, api *bot.Bot, update *m
 
 	newData, ok := data.(*fsm.SubscriptionCreationFlowData)
 	if !ok {
+		slog.Error("Critical error: unable to assert flow data",
+			"data", data,
+			"service", logger.TelegramBot)
+		b.TryTransition(ctx, userID, fsm.StepIdle, &fsm.IdleData{})
 		b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: userID,
-			Text:   genericServiceErrorMsg(),
+			Text:   presentation.GenericServiceErrorMsg(),
 		})
 	}
 
 	if lesson == nil {
 		sub := parseFlowData(newData)
-		b.TryTransition(ctx, api, userID, fsm.StepAwaitingSubCreationConfirmation, nil)
+		b.TryTransition(ctx, userID, fsm.StepAwaitingSubCreationConfirmation, newData)
 
 		b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID:      userID,
-			Text:        askSubCreationConfirmationMsg(sub),
+			Text:        presentation.AskSubCreationConfirmationMsg(sub),
 			ParseMode:   models.ParseModeHTML,
-			ReplyMarkup: askLabConfirmationKbd(),
+			ReplyMarkup: presentation.AskSubCreationConfirmationKbd(),
 		})
 		return
 	}
@@ -210,19 +238,19 @@ func (b *telegramBot) handleLessons(ctx context.Context, api *bot.Bot, update *m
 		existingLessonsMap[lesson] = true
 	}
 
-	kbdLessons := make([]Lesson, 0, len(defaultLessons))
-	for i, lesson := range defaultLessons {
+	kbdLessons := make([]utils.Lesson, 0, len(utils.DefaultLessons))
+	for i, lesson := range utils.DefaultLessons {
 		lessonNum := i + 1
 		if !existingLessonsMap[lessonNum] {
 			kbdLessons = append(kbdLessons, lesson)
 		}
 	}
 
-	b.TryTransition(ctx, api, userID, fsm.StepAwaitingLabLessons, newData)
+	b.TryTransition(ctx, userID, fsm.StepAwaitingLabLessons, newData)
 	b.EditMessageReplyMarkup(ctx, &bot.EditMessageReplyMarkupParams{
 		ChatID:      userID,
 		MessageID:   update.CallbackQuery.Message.Message.ID,
-		ReplyMarkup: selectLessonKbd(kbdLessons),
+		ReplyMarkup: presentation.SelectLessonKbd(kbdLessons),
 	})
 }
 
@@ -232,21 +260,25 @@ func (b *telegramBot) handleSubCreationConfirmation(ctx context.Context, api *bo
 
 	newData, ok := data.(*fsm.SubscriptionCreationFlowData)
 	if !ok {
+		slog.Error("Critical error: unable to assert flow data",
+			"data", data,
+			"service", logger.TelegramBot)
+		b.TryTransition(ctx, userID, fsm.StepIdle, &fsm.IdleData{})
 		b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID: userID,
-			Text:   genericServiceErrorMsg(),
+			Text:   presentation.GenericServiceErrorMsg(),
 		})
 	}
 
 	if confirmed {
 		sub := parseFlowData(newData)
-		b.TryTransition(ctx, api, userID, fsm.StepIdle, nil)
+		b.TryTransition(ctx, userID, fsm.StepIdle, &fsm.IdleData{})
 
 		err := b.subscriptionService.Subscribe(ctx, *sub)
 		if err != nil {
 			b.SendMessage(ctx, &bot.SendMessageParams{
 				ChatID:    userID,
-				Text:      subCreationErrorMsg(err),
+				Text:      presentation.GenericServiceErrorMsg(),
 				ParseMode: models.ParseModeHTML,
 			})
 			return
@@ -254,16 +286,16 @@ func (b *telegramBot) handleSubCreationConfirmation(ctx context.Context, api *bo
 
 		b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID:    userID,
-			Text:      subCreationSuccessMsg(),
+			Text:      presentation.SubCreationSuccessMsg(),
 			ParseMode: models.ParseModeHTML,
 		})
 		return
 	}
 
-	b.TryTransition(ctx, api, userID, fsm.StepIdle, nil)
+	b.TryTransition(ctx, userID, fsm.StepIdle, nil)
 	b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID:    userID,
-		Text:      subCreationCancelledMsg(),
+		Text:      presentation.SubCreationCancelledMsg(),
 		ParseMode: models.ParseModeHTML,
 	})
 }
