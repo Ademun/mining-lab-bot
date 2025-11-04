@@ -8,8 +8,7 @@ import (
 type ConversationStep string
 
 const (
-	StepIdle ConversationStep = "idle"
-	// /sub chain
+	StepIdle                            ConversationStep = "idle"
 	StepAwaitingLabType                 ConversationStep = "awaiting_lab_type"
 	StepAwaitingLabNumber               ConversationStep = "awaiting_lab_number"
 	StepAwaitingLabAuditorium           ConversationStep = "awaiting_lab_auditorium"
@@ -17,8 +16,7 @@ const (
 	StepAwaitingLabWeekday              ConversationStep = "awaiting_lab_weekday"
 	StepAwaitingLabLessons              ConversationStep = "awaiting_lab_lessons"
 	StepAwaitingSubCreationConfirmation ConversationStep = "awaiting_sub_creation_confirmation"
-	// /unsub chain
-	StepAwaitingListingSubsAction ConversationStep = "awaiting_listing_action"
+	StepAwaitingListingSubsAction       ConversationStep = "awaiting_listing_action"
 )
 
 type StateData interface {
