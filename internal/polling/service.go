@@ -10,7 +10,6 @@ import (
 	"github.com/Ademun/mining-lab-bot/internal/teacher"
 	"github.com/Ademun/mining-lab-bot/pkg/config"
 	"github.com/Ademun/mining-lab-bot/pkg/logger"
-	"github.com/Ademun/mining-lab-bot/pkg/metrics"
 	"golang.org/x/time/rate"
 )
 
@@ -115,9 +114,8 @@ func (s *pollingService) poll(ctx context.Context) {
 
 	wg := sync.WaitGroup{}
 	sem := make(chan struct{}, 100)
+	pollStart := time.Now()
 	dataChan, errChan := s.pollServerData(ctx)
-	var dataLen, fetchErrs, parseErrs int
-	start := time.Now()
 	for dataChan != nil || errChan != nil {
 		select {
 		case <-ctx.Done():
@@ -127,12 +125,15 @@ func (s *pollingService) poll(ctx context.Context) {
 				dataChan = nil
 				continue
 			}
+
+			parseStart := time.Now()
 			slots, err := s.ParseServerData(ctx, &data, data.Data.ServiceID)
+			recordParsing(time.Since(parseStart), err != nil)
+
 			if err != nil {
-				parseErrs++
 				slog.Warn("Parsing error", "error", err, "service", logger.ServicePolling)
 			}
-			dataLen += len(slots)
+
 			for _, slot := range slots {
 				sem <- struct{}{}
 				wg.Add(1)
@@ -147,14 +148,13 @@ func (s *pollingService) poll(ctx context.Context) {
 				errChan = nil
 				continue
 			}
-			fetchErrs++
 			slog.Warn("Polling error", "error", err, "service", logger.ServicePolling)
 		}
 	}
+	recordPolling(time.Since(pollStart))
 	wg.Wait()
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	metrics.Global().RecordPollResults(dataLen, len(s.serviceIDs), parseErrs, fetchErrs, s.options.Mode, time.Since(start))
 }
 
 func (s *pollingService) startIDUpdateLoop(ctx context.Context) {

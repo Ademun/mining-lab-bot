@@ -20,10 +20,12 @@ func (s *pollingService) fetchData(ctx context.Context, url string) (*http.Respo
 		return nil, &ErrFetch{url: url, msg: "rate limiting error", err: err}
 	}
 
+	start := time.Now()
 	res, err := s.httpClient.Do(req)
 	if err != nil {
 		return nil, &ErrFetch{url: url, msg: "failed to fetch data", err: err}
 	}
+	recordRequest(time.Since(start), res.StatusCode)
 
 	if res.StatusCode != http.StatusOK {
 		err := s.processBadHTTPResponse(res)
