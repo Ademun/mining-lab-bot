@@ -68,6 +68,7 @@ func (s *notificationService) SendNotification(ctx context.Context, slot polling
 			slog.Error("Limiter error", "err", err, "service", logger.ServiceNotification)
 			return
 		}
+		recordNotification()
 		s.notifier.SendNotification(ctx, notif)
 	}
 
@@ -93,6 +94,7 @@ func (s *notificationService) NotifyNewSubscription(ctx context.Context, sub sub
 			slog.Error("Limiter error", "err", err, "service", logger.ServiceNotification)
 			return
 		}
+		recordNotification()
 		s.notifier.SendNotification(ctx, notif)
 	}
 
