@@ -26,13 +26,13 @@ type notificationService struct {
 	cache      SlotCache
 }
 
-func New(subService subscription.Service, notifier SlotNotifier, client *redis.Client, opts *config.Config) Service {
+func New(subService subscription.Service, notifier SlotNotifier, client *redis.Client, opts *config.NotificationConfig) Service {
 	return &notificationService{
 		subService: subService,
 		notifier:   notifier,
-		options:    opts.NotificationConfig,
-		limiter:    rate.NewLimiter(opts.NotificationConfig.NotificationRate, 1),
-		cache:      *NewSlotCache(client, opts.NotificationConfig.RedisPrefix, opts.NotificationConfig.CacheTTL),
+		options:    *opts,
+		limiter:    rate.NewLimiter(opts.NotificationRate, 1),
+		cache:      *NewSlotCache(client, opts.RedisPrefix, opts.CacheTTL),
 	}
 }
 
@@ -71,7 +71,9 @@ func (s *notificationService) SendNotification(ctx context.Context, slot polling
 		s.notifier.SendNotification(ctx, notif)
 	}
 
-	slog.Info("Finished sending notifications", "total", len(users), "slot", slot, "service", logger.ServiceNotification)
+	if len(users) > 0 {
+		slog.Info("Finished sending notifications", "total", len(users), "slot", slot, "service", logger.ServiceNotification)
+	}
 }
 
 func (s *notificationService) NotifyNewSubscription(ctx context.Context, sub subscription.RequestSubscription) {

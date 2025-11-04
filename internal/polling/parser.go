@@ -14,7 +14,7 @@ var (
 	audRe      = regexp.MustCompile(`\((\d+)\s*\p{L}+\.\)`)
 	orderRe    = regexp.MustCompile(`\((\d+)-?\p{L}*\s*место\)`)
 	domainRe   = regexp.MustCompile(`\b(Электричество|Механика|Виртуальная\s*лаб\.?)\b`)
-	typePrefix = "Аудиторная"
+	typePrefix = "Аудиторное"
 )
 
 func (s *pollingService) ParseServerData(ctx context.Context, data *ServerData, serviceID int) ([]Slot, error) {
@@ -74,10 +74,7 @@ func parseSlotInfo(username, serviceName string) (*Slot, error) {
 	if err != nil {
 		return nil, err
 	}
-	order, err := parseOrder(username, serviceName)
-	if err != nil {
-		return nil, err
-	}
+	order := parseOrder(username, serviceName)
 	domain := parseDomain(serviceName)
 	labType := parseType(username)
 
@@ -125,15 +122,15 @@ func parseAuditorium(username string, serviceName string) (int, error) {
 	return 0, &ErrParseData{data: username + " " + serviceName, msg: "lab auditorium not found", err: errors.New("invalid lab name format")}
 }
 
-func parseOrder(username string, serviceName string) (int, error) {
+func parseOrder(username string, serviceName string) *int {
 	if match := orderRe.FindStringSubmatch(username); match != nil {
 		labOrder, _ := strconv.Atoi(match[1])
-		return labOrder, nil
+		return &labOrder
 	} else if match := orderRe.FindStringSubmatch(serviceName); match != nil {
 		labOrder, _ := strconv.Atoi(match[1])
-		return labOrder, nil
+		return &labOrder
 	}
-	return 0, &ErrParseData{data: username + " " + serviceName, msg: "lab order not found", err: errors.New("invalid lab name format")}
+	return nil
 }
 
 func parseDomain(serviceName string) LabDomain {

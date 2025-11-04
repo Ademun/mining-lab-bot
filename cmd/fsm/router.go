@@ -36,6 +36,7 @@ func (r *Router) Middleware(next bot.HandlerFunc) bot.HandlerFunc {
 	return func(ctx context.Context, b *bot.Bot, update *models.Update) {
 		var userID int64
 		if update.Message != nil {
+			userID = update.Message.From.ID
 			if strings.HasPrefix(update.Message.Text, "/") {
 				if err := r.fsm.ResetState(ctx, userID); err != nil {
 					return
@@ -43,7 +44,6 @@ func (r *Router) Middleware(next bot.HandlerFunc) bot.HandlerFunc {
 				next(ctx, b, update)
 				return
 			}
-			userID = update.Message.From.ID
 		} else if update.CallbackQuery != nil {
 			userID = update.CallbackQuery.From.ID
 		} else {

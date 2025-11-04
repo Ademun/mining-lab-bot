@@ -47,6 +47,9 @@ func (s *pollingService) fetchDocument(ctx context.Context) (*goquery.Document, 
 	if err != nil {
 		return nil, err
 	}
+	if res.Body != nil {
+		defer res.Body.Close()
+	}
 
 	doc, err := goquery.NewDocumentFromReader(res.Body)
 	if err != nil {

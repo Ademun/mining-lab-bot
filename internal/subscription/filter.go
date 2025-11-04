@@ -8,7 +8,7 @@ import (
 
 type SubFilters struct {
 	UserID        int
-	Type          polling.LabType
+	Type          *polling.LabType
 	LabNumber     int
 	LabAuditorium int
 	LabDomain     *polling.LabDomain
@@ -22,7 +22,9 @@ func (f *SubFilters) buildQuery() (string, []interface{}, error) {
 	if f.UserID != 0 {
 		conditions = append(conditions, squirrel.Eq{"user_id": f.UserID})
 	}
-	conditions = append(conditions, squirrel.Eq{"lab_type": f.Type})
+	if f.Type != nil {
+		conditions = append(conditions, squirrel.Eq{"lab_type": f.Type})
+	}
 	if f.LabNumber != 0 {
 		conditions = append(conditions, squirrel.Eq{"lab_number": f.LabNumber})
 	}

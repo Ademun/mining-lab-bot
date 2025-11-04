@@ -24,6 +24,7 @@ type Bot interface {
 	SendNotification(ctx context.Context, notif notification.Notification)
 	AnswerCallbackQuery(ctx context.Context, params *bot.AnswerCallbackQueryParams)
 	EditMessageReplyMarkup(ctx context.Context, params *bot.EditMessageReplyMarkupParams)
+	EditMessageText(ctx context.Context, params *bot.EditMessageTextParams)
 	TryTransition(ctx context.Context, userID int64, newStep fsm.ConversationStep, newData fsm.StateData)
 }
 
@@ -120,6 +121,14 @@ func (b *telegramBot) AnswerCallbackQuery(ctx context.Context, params *bot.Answe
 func (b *telegramBot) EditMessageReplyMarkup(ctx context.Context, params *bot.EditMessageReplyMarkupParams) {
 	if _, err := b.api.EditMessageReplyMarkup(ctx, params); err != nil {
 		slog.Error("Failed to edit message reply markup",
+			"error", err,
+			"params", params)
+	}
+}
+
+func (b *telegramBot) EditMessageText(ctx context.Context, params *bot.EditMessageTextParams) {
+	if _, err := b.api.EditMessageText(ctx, params); err != nil {
+		slog.Error("Failed to edit message text",
 			"error", err,
 			"params", params)
 	}

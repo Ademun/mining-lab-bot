@@ -1,3 +1,7 @@
+global:
+  redis_addr: "localhost:6379"
+  redis_pass: ""
+  redis_db: 0
 polling:
   service_url: "https://dikidi.net/550001?p=1.pi-ssm"
   mode: "normal"
@@ -7,7 +11,7 @@ polling:
   normal_fetch_rate: 1s
   aggressive_fetch_rate: 500ms
   min_fetch_rate: 10s
-  max_fetch_rate: 250ms
+  max_fetch_rate: 300ms
   backoff_factor: 2.0
   recovery_factor: 1.2
 notification:

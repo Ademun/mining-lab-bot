@@ -33,7 +33,7 @@ func (s *subscriptionRepo) Create(ctx context.Context, subReq RequestSubscriptio
 
 	subInsert := `
 insert into subscriptions 
-(uuid, user_id, type, lab_number, lab_auditorium, lab_domain, weekday) 
+(uuid, user_id, lab_type, lab_number, lab_auditorium, lab_domain, weekday) 
 values 
 (:uuid, :user_id, :lab_type, :lab_number, :lab_auditorium, :lab_domain, :weekday)`
 	_, err = tx.NamedExecContext(ctx, subInsert, sub)

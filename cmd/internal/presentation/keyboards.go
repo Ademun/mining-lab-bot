@@ -12,7 +12,7 @@ func SelectLabTypeKbd() *models.InlineKeyboardMarkup {
 	return &models.InlineKeyboardMarkup{
 		InlineKeyboard: [][]models.InlineKeyboardButton{
 			{{Text: "Выполнение", CallbackData: "sub_creation:type:performance"}},
-			{{Text: "Защита", CallbackData: "sub_creation:domain:virtual:defence"}},
+			{{Text: "Защита", CallbackData: "sub_creation:type:defence"}},
 		},
 	}
 }

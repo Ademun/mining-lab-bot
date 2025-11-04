@@ -7,12 +7,11 @@ import (
 
 	"github.com/Ademun/mining-lab-bot/pkg/config"
 	"github.com/Ademun/mining-lab-bot/pkg/logger"
-	"github.com/Ademun/mining-lab-bot/pkg/model"
 	"github.com/robfig/cron/v3"
 )
 
 type Service interface {
-	FindTeachersForTime(ctx context.Context, targetTime time.Time, auditorium int) []model.Teacher
+	FindTeachersForTime(ctx context.Context, targetTime time.Time, auditorium int) []Teacher
 }
 
 type teacherService struct {
@@ -56,14 +55,14 @@ func (s *teacherService) Stop(ctx context.Context) {
 	slog.Info("Stopped", "service", logger.ServiceTeacher)
 }
 
-func (s *teacherService) FindTeachersForTime(ctx context.Context, targetTime time.Time, auditorium int) []model.Teacher {
+func (s *teacherService) FindTeachersForTime(ctx context.Context, targetTime time.Time, auditorium int) []Teacher {
 	teachers, err := s.teacherRepo.FindByWeekNumberWeekdayAuditorium(ctx, s.calculateWeekNumber(targetTime), targetTime.Weekday(), auditorium)
 	if err != nil {
 		slog.Error("Failed to find teachers", "error", err, "service", logger.ServiceTeacher)
 	}
 
 	normalized := timeToMinutes(targetTime.Hour(), targetTime.Minute())
-	res := make([]model.Teacher, 0)
+	res := make([]Teacher, 0)
 	for _, teacher := range teachers {
 		start, _ := time.Parse("15:04", teacher.TimeStart)
 		startMins := timeToMinutes(start.Hour(), start.Minute())
@@ -84,7 +83,7 @@ func (s *teacherService) calculateWeekNumber(targetTime time.Time) int {
 
 	weekDiff := int(targetWeekStart.Sub(currentWeekStart).Hours() / (24 * 7))
 
-	if weekDiff % 2 == 0 {
+	if weekDiff%2 == 0 {
 		return s.weekNumber
 	}
 
@@ -100,7 +99,7 @@ func getMonday(t time.Time) time.Time {
 		weekday = 7
 	}
 
-	daysToSubtract := weekday-1
+	daysToSubtract := weekday - 1
 	monday := t.AddDate(0, 0, -daysToSubtract)
 
 	return time.Date(monday.Year(), monday.Month(), monday.Day(), 0, 0, 0, 0, monday.Location())

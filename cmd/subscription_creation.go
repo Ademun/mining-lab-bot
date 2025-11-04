@@ -17,6 +17,9 @@ import (
 )
 
 func (b *telegramBot) handleSubscriptionCreation(ctx context.Context, api *bot.Bot, update *models.Update) {
+	if update.Message == nil {
+		return
+	}
 	userID := update.Message.From.ID
 
 	newData := &fsm.SubscriptionCreationFlowData{
@@ -34,8 +37,15 @@ func (b *telegramBot) handleSubscriptionCreation(ctx context.Context, api *bot.B
 }
 
 func (b *telegramBot) handleLabType(ctx context.Context, api *bot.Bot, update *models.Update, data fsm.StateData) {
+	if update.CallbackQuery == nil {
+		return
+	}
 	userID := update.CallbackQuery.From.ID
 	labType := extractLabType(update)
+
+	b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
+		CallbackQueryID: update.CallbackQuery.ID,
+	})
 
 	newData, ok := data.(*fsm.SubscriptionCreationFlowData)
 	if !ok {
@@ -44,34 +54,35 @@ func (b *telegramBot) handleLabType(ctx context.Context, api *bot.Bot, update *m
 			"service", logger.TelegramBot)
 		b.TryTransition(ctx, userID, fsm.StepIdle, &fsm.IdleData{})
 		b.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID: userID,
-			Text:   presentation.GenericServiceErrorMsg(),
+			ChatID:    userID,
+			Text:      presentation.GenericServiceErrorMsg(),
+			ParseMode: models.ParseModeHTML,
 		})
+		return
 	}
 	newData.LabType = labType
 
 	b.TryTransition(ctx, userID, fsm.StepAwaitingLabNumber, newData)
-
 	b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID:    userID,
 		Text:      presentation.AskLabNumberMsg(),
 		ParseMode: models.ParseModeHTML,
 	})
-
-	b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
-		CallbackQueryID: update.CallbackQuery.ID,
-	})
 }
 
 func (b *telegramBot) handleLabNumber(ctx context.Context, api *bot.Bot, update *models.Update, data fsm.StateData) {
+	if update.Message == nil {
+		return
+	}
 	userID := update.Message.From.ID
 	labNumberStr := update.Message.Text
 
 	labNumber, cause := validateLabNumber(labNumberStr)
 	if cause != "" {
 		b.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID: userID,
-			Text:   presentation.ValidationErrorMsg(cause),
+			ChatID:    userID,
+			Text:      presentation.ValidationErrorMsg(cause),
+			ParseMode: models.ParseModeHTML,
 		})
 		return
 	}
@@ -83,9 +94,11 @@ func (b *telegramBot) handleLabNumber(ctx context.Context, api *bot.Bot, update 
 			"service", logger.TelegramBot)
 		b.TryTransition(ctx, userID, fsm.StepIdle, &fsm.IdleData{})
 		b.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID: userID,
-			Text:   presentation.GenericServiceErrorMsg(),
+			ChatID:    userID,
+			Text:      presentation.GenericServiceErrorMsg(),
+			ParseMode: models.ParseModeHTML,
 		})
+		return
 	}
 	newData.LabNumber = labNumber
 
@@ -109,6 +122,9 @@ func (b *telegramBot) handleLabNumber(ctx context.Context, api *bot.Bot, update 
 }
 
 func (b *telegramBot) handleLabAuditorium(ctx context.Context, api *bot.Bot, update *models.Update, data fsm.StateData) {
+	if update.Message == nil {
+		return
+	}
 	userID := update.Message.From.ID
 	labAuditoriumStr := update.Message.Text
 
@@ -129,8 +145,9 @@ func (b *telegramBot) handleLabAuditorium(ctx context.Context, api *bot.Bot, upd
 			"service", logger.TelegramBot)
 		b.TryTransition(ctx, userID, fsm.StepIdle, &fsm.IdleData{})
 		b.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID: userID,
-			Text:   presentation.GenericServiceErrorMsg(),
+			ChatID:    userID,
+			Text:      presentation.GenericServiceErrorMsg(),
+			ParseMode: models.ParseModeHTML,
 		})
 	}
 	newData.LabAuditorium = &labAuditorium
@@ -145,8 +162,15 @@ func (b *telegramBot) handleLabAuditorium(ctx context.Context, api *bot.Bot, upd
 }
 
 func (b *telegramBot) handleLabDomain(ctx context.Context, api *bot.Bot, update *models.Update, data fsm.StateData) {
+	if update.CallbackQuery == nil {
+		return
+	}
 	userID := update.CallbackQuery.From.ID
 	labDomain := extractLabDomain(update)
+
+	b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
+		CallbackQueryID: update.CallbackQuery.ID,
+	})
 
 	newData, ok := data.(*fsm.SubscriptionCreationFlowData)
 	if !ok {
@@ -155,9 +179,11 @@ func (b *telegramBot) handleLabDomain(ctx context.Context, api *bot.Bot, update 
 			"service", logger.TelegramBot)
 		b.TryTransition(ctx, userID, fsm.StepIdle, &fsm.IdleData{})
 		b.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID: userID,
-			Text:   presentation.GenericServiceErrorMsg(),
+			ChatID:    userID,
+			Text:      presentation.GenericServiceErrorMsg(),
+			ParseMode: models.ParseModeHTML,
 		})
+		return
 	}
 	newData.LabDomain = labDomain
 
@@ -168,14 +194,18 @@ func (b *telegramBot) handleLabDomain(ctx context.Context, api *bot.Bot, update 
 		ParseMode:   models.ParseModeHTML,
 		ReplyMarkup: presentation.SelectWeekdayKbd(),
 	})
-	b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
-		CallbackQueryID: update.CallbackQuery.ID,
-	})
 }
 
 func (b *telegramBot) handleWeekday(ctx context.Context, api *bot.Bot, update *models.Update, data fsm.StateData) {
+	if update.CallbackQuery == nil {
+		return
+	}
 	userID := update.CallbackQuery.From.ID
 	weekday := extractWeekday(update)
+
+	b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
+		CallbackQueryID: update.CallbackQuery.ID,
+	})
 
 	newData, ok := data.(*fsm.SubscriptionCreationFlowData)
 	if !ok {
@@ -184,11 +214,27 @@ func (b *telegramBot) handleWeekday(ctx context.Context, api *bot.Bot, update *m
 			"service", logger.TelegramBot)
 		b.TryTransition(ctx, userID, fsm.StepIdle, &fsm.IdleData{})
 		b.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID: userID,
-			Text:   presentation.GenericServiceErrorMsg(),
+			ChatID:    userID,
+			Text:      presentation.GenericServiceErrorMsg(),
+			ParseMode: models.ParseModeHTML,
 		})
+		return
 	}
 	newData.Weekday = weekday
+
+	if weekday == nil {
+		b.TryTransition(ctx, userID, fsm.StepAwaitingSubCreationConfirmation, newData)
+		b.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID:      userID,
+			Text:        presentation.AskSubCreationConfirmationMsg(parseFlowData(newData)),
+			ParseMode:   models.ParseModeHTML,
+			ReplyMarkup: presentation.AskSubCreationConfirmationKbd(),
+		})
+		b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
+			CallbackQueryID: update.CallbackQuery.ID,
+		})
+		return
+	}
 
 	b.TryTransition(ctx, userID, fsm.StepAwaitingLabLessons, newData)
 	b.SendMessage(ctx, &bot.SendMessageParams{
@@ -203,8 +249,15 @@ func (b *telegramBot) handleWeekday(ctx context.Context, api *bot.Bot, update *m
 }
 
 func (b *telegramBot) handleLessons(ctx context.Context, api *bot.Bot, update *models.Update, data fsm.StateData) {
+	if update.CallbackQuery == nil {
+		return
+	}
 	userID := update.CallbackQuery.From.ID
 	lesson := extractLesson(update)
+
+	b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
+		CallbackQueryID: update.CallbackQuery.ID,
+	})
 
 	newData, ok := data.(*fsm.SubscriptionCreationFlowData)
 	if !ok {
@@ -213,9 +266,11 @@ func (b *telegramBot) handleLessons(ctx context.Context, api *bot.Bot, update *m
 			"service", logger.TelegramBot)
 		b.TryTransition(ctx, userID, fsm.StepIdle, &fsm.IdleData{})
 		b.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID: userID,
-			Text:   presentation.GenericServiceErrorMsg(),
+			ChatID:    userID,
+			Text:      presentation.GenericServiceErrorMsg(),
+			ParseMode: models.ParseModeHTML,
 		})
+		return
 	}
 
 	if lesson == nil {
@@ -255,8 +310,15 @@ func (b *telegramBot) handleLessons(ctx context.Context, api *bot.Bot, update *m
 }
 
 func (b *telegramBot) handleSubCreationConfirmation(ctx context.Context, api *bot.Bot, update *models.Update, data fsm.StateData) {
+	if update.CallbackQuery == nil {
+		return
+	}
 	userID := update.CallbackQuery.From.ID
 	confirmed := extractConfirmed(update)
+
+	b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
+		CallbackQueryID: update.CallbackQuery.ID,
+	})
 
 	newData, ok := data.(*fsm.SubscriptionCreationFlowData)
 	if !ok {
@@ -265,9 +327,11 @@ func (b *telegramBot) handleSubCreationConfirmation(ctx context.Context, api *bo
 			"service", logger.TelegramBot)
 		b.TryTransition(ctx, userID, fsm.StepIdle, &fsm.IdleData{})
 		b.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID: userID,
-			Text:   presentation.GenericServiceErrorMsg(),
+			ChatID:    userID,
+			Text:      presentation.GenericServiceErrorMsg(),
+			ParseMode: models.ParseModeHTML,
 		})
+		return
 	}
 
 	if confirmed {

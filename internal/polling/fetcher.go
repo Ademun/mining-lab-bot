@@ -24,7 +24,6 @@ func (s *pollingService) fetchData(ctx context.Context, url string) (*http.Respo
 	if err != nil {
 		return nil, &ErrFetch{url: url, msg: "failed to fetch data", err: err}
 	}
-	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
 		err := s.processBadHTTPResponse(res)

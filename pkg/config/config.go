@@ -12,10 +12,17 @@ import (
 )
 
 type Config struct {
+	GlobalConfig       GlobalConfig       `yaml:"global"`
 	PollingConfig      PollingConfig      `yaml:"polling"`
 	NotificationConfig NotificationConfig `yaml:"notification"`
 	TelegramConfig     TelegramConfig     `yaml:"telegram"`
 	TeacherConfig      TeacherConfig      `yaml:"teacher"`
+}
+
+type GlobalConfig struct {
+	RedisAddr string `yaml:"redis_addr"`
+	RedisPass string `yaml:"redis_pass"`
+	RedisDB   int    `yaml:"redis_db"`
 }
 
 type PollingConfig struct {

@@ -1,11 +1,12 @@
 package polling
 
 import (
-	"bytes"
 	"crypto/sha256"
-	"encoding/gob"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"sort"
+	"strings"
 	"time"
 )
 
@@ -56,21 +57,35 @@ type Slot struct {
 	Name          string
 	Number        int
 	Auditorium    int
-	Order         int // 0 if no order
+	Order         *int
 	Domain        LabDomain
 	TimesTeachers map[time.Time][]string
 	URL           string
 }
 
-func (s Slot) Key() string {
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-	err := enc.Encode(s)
-	if err != nil {
-		panic(err)
+func (s *Slot) Key() string {
+	times := make([]time.Time, 0, len(s.TimesTeachers))
+	for t := range s.TimesTeachers {
+		times = append(times, t)
 	}
-	hash := sha256.Sum256(buf.Bytes())
-	return fmt.Sprintf("%x", hash)
+	sort.Slice(times, func(i, j int) bool {
+		return times[i].Before(times[j])
+	})
+
+	timeStrings := make([]string, len(times))
+	for i, t := range times {
+		timeStrings[i] = t.Format("2006-01-02 15:04")
+	}
+
+	keyString := fmt.Sprintf("%v|%d|%v|%s",
+		s.Type,
+		s.Number,
+		s.Domain,
+		strings.Join(timeStrings, ","),
+	)
+
+	hash := sha256.Sum256([]byte(keyString))
+	return hex.EncodeToString(hash[:])
 }
 
 // ======================================================

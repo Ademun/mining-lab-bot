@@ -103,7 +103,7 @@ func ValidationErrorMsg(cause string) string {
 // Subscription creation flow
 
 func AskLabTypeMsg() string {
-	return "<b>📝 Выберите тип лабораторной работы"
+	return "<b>📝 Выберите тип лабораторной работы</b>"
 }
 
 func AskLabNumberMsg() string {
@@ -123,9 +123,7 @@ func AskLabAuditoriumMsg() string {
 }
 
 func AskLabDomainMsg() string {
-	var sb strings.Builder
-	sb.WriteString("<b>⚛️ Выберите вид лабораторной работы")
-	return sb.String()
+	return "<b>⚛️ Выберите вид лабораторной работы</b>"
 }
 
 func AskWeekdayMsg() string {
@@ -147,22 +145,23 @@ func AskSubCreationConfirmationMsg(sub *subscription.RequestSubscription) string
 	sb.WriteString(fmt.Sprintf("<b>📚 Лаба: %d. %s</b>", sub.LabNumber, sub.Type.String()))
 	sb.WriteString(repeatLineBreaks(2))
 	if sub.LabAuditorium != nil {
-		sb.WriteString(fmt.Sprintf("<b>🚪 Аудитория:</b> %d", sub.LabAuditorium))
+		sb.WriteString(fmt.Sprintf("<b>🚪 Аудитория:</b> %d", *sub.LabAuditorium))
 	} else if sub.LabDomain != nil {
 		sb.WriteString(fmt.Sprintf("<b>⚛️ %s</b>", sub.LabDomain))
 	}
 	sb.WriteString(repeatLineBreaks(2))
 
 	if sub.Weekday != nil {
-		sb.WriteString(repeatLineBreaks(2))
 		sb.WriteString(fmt.Sprintf("<b>📅 День:</b> %s", utils.WeekdayLocale[*sub.Weekday]))
+		sb.WriteString(repeatLineBreaks(2))
 	}
 
 	if sub.Lessons != nil {
-		sb.WriteString(repeatLineBreaks(2))
 		sb.WriteString(fmt.Sprintf("<b>🕐 Время:</b>"))
+		sb.WriteString(repeatLineBreaks(2))
 		for _, lesson := range sub.Lessons {
 			sb.WriteString(fmt.Sprintf("<b>%s</b>", utils.DefaultLessons[lesson-1].Text))
+			sb.WriteString(repeatLineBreaks(1))
 		}
 	}
 
@@ -198,22 +197,23 @@ func SubViewMsg(sub *subscription.ResponseSubscription) string {
 	sb.WriteString(fmt.Sprintf("<b>📚 Лаба: %d. %s</b>", sub.LabNumber, sub.LabType.String()))
 	sb.WriteString(repeatLineBreaks(2))
 	if sub.LabAuditorium != nil {
-		sb.WriteString(fmt.Sprintf("<b>🚪 Аудитория:</b> %d", sub.LabAuditorium))
+		sb.WriteString(fmt.Sprintf("<b>🚪 Аудитория:</b> %d", *sub.LabAuditorium))
 	} else if sub.LabDomain != nil {
 		sb.WriteString(fmt.Sprintf("<b>⚛️ %s</b>", sub.LabDomain))
 	}
 	sb.WriteString(repeatLineBreaks(2))
 
 	if sub.Weekday != nil {
-		sb.WriteString(repeatLineBreaks(2))
 		sb.WriteString(fmt.Sprintf("<b>📅 День:</b> %s", utils.WeekdayLocale[*sub.Weekday]))
+		sb.WriteString(repeatLineBreaks(2))
 	}
 
-	if sub.PreferredTimes != nil {
-		sb.WriteString(repeatLineBreaks(2))
+	if len(sub.PreferredTimes) > 0 {
 		sb.WriteString(fmt.Sprintf("<b>🕐 Время:</b>"))
+		sb.WriteString(repeatLineBreaks(2))
 		for _, prefTime := range sub.PreferredTimes {
 			sb.WriteString(fmt.Sprintf("<b>%s</b>", utils.TimeStartToLongLessonTime[prefTime.TimeStart]))
+			sb.WriteString(repeatLineBreaks(1))
 		}
 	}
 	return sb.String()
@@ -231,7 +231,7 @@ func NotifyMsg(notif *notification.Notification) string {
 	sb.WriteString("<b>🔥 Появилась запись!</b>")
 	sb.WriteString(repeatLineBreaks(3))
 	longName := slot.Name
-	if slot.Order != 0 {
+	if slot.Order != nil {
 		longName += fmt.Sprintf(" (%d-ое место)", slot.Order)
 	}
 	sb.WriteString(fmt.Sprintf("<b>📚 Лаба №%d. %s</b>", slot.Number, longName))

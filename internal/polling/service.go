@@ -144,10 +144,10 @@ func (s *pollingService) poll(ctx context.Context) {
 			}
 		case err, ok := <-errChan:
 			if !ok {
-				fetchErrs++
 				errChan = nil
 				continue
 			}
+			fetchErrs++
 			slog.Warn("Polling error", "error", err, "service", logger.ServicePolling)
 		}
 	}

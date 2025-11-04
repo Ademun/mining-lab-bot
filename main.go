@@ -17,6 +17,7 @@ import (
 	"github.com/Ademun/mining-lab-bot/pkg/logger"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/redis/go-redis/v9"
 )
 
 func main() {
@@ -37,6 +38,12 @@ func main() {
 		return
 	}
 
+	cache := redis.NewClient(&redis.Options{
+		Addr:     cfg.GlobalConfig.RedisAddr,
+		Password: cfg.GlobalConfig.RedisPass,
+		DB:       cfg.GlobalConfig.RedisDB,
+	})
+
 	subscriptionRepo := subscription.NewRepo(db)
 
 	subscriptionService := subscription.New(subscriptionRepo)
@@ -44,13 +51,13 @@ func main() {
 		slog.Error("Fatal error", "error", err)
 	}
 
-	bot, err := cmd.NewBot(subscriptionService, &cfg.TelegramConfig)
+	bot, err := cmd.NewBot(subscriptionService, &cfg.TelegramConfig, cache)
 	if err != nil {
 		slog.Error("Fatal error", "error", err)
 		return
 	}
 
-	notificationService := notification.New(subscriptionService, bot)
+	notificationService := notification.New(subscriptionService, bot, cache, &cfg.NotificationConfig)
 
 	bot.SetNotificationService(notificationService)
 	bot.Start(ctx)

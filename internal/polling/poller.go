@@ -26,14 +26,15 @@ func (s *pollingService) pollServerData(ctx context.Context) (chan ServerData, c
 
 		for _, serviceID := range s.serviceIDs {
 			wg.Add(1)
-			serviceID := serviceID
 			go func() {
+				defer wg.Done()
 				result, err := s.processSingleService(ctx, serviceID)
 				if err != nil {
 					select {
 					case errChan <- err:
 					case <-ctx.Done():
 					}
+					return
 				}
 				select {
 				case results <- *result:
@@ -103,6 +104,9 @@ func (s *pollingService) fetchServerData(ctx context.Context, serviceID int, dat
 	res, err := s.fetchData(ctx, u.String())
 	if err != nil {
 		return nil, err
+	}
+	if res.Body != nil {
+		defer res.Body.Close()
 	}
 
 	return unmarshalServerData(res.Body, serviceID)

@@ -12,6 +12,9 @@ import (
 
 // /help command, or any unmatched message
 func handleDefault(ctx context.Context, api *bot.Bot, update *models.Update) {
+	if update.Message == nil {
+		return
+	}
 	userID := update.Message.Chat.ID
 
 	if _, err := api.SendMessage(ctx, &bot.SendMessageParams{
@@ -32,6 +35,9 @@ func handleDefault(ctx context.Context, api *bot.Bot, update *models.Update) {
 
 // /start command
 func (b *telegramBot) handleStart(ctx context.Context, api *bot.Bot, update *models.Update) {
+	if update.Message == nil {
+		return
+	}
 	userID := update.Message.Chat.ID
 
 	b.SendMessage(ctx, &bot.SendMessageParams{

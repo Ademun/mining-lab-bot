@@ -11,6 +11,9 @@ import (
 
 // /stats command, admin only
 func (b *telegramBot) handleStats(ctx context.Context, api *bot.Bot, update *models.Update) {
+	if update.Message == nil {
+		return
+	}
 	userID := update.Message.Chat.ID
 	adminID := b.options.AdminID
 
