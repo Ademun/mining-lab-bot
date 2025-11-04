@@ -1,13 +1,15 @@
-package cmd
+package middleware
 
 import (
 	"context"
+	"log/slog"
+	"strings"
 
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 )
 
-func typingMiddleware(next bot.HandlerFunc) bot.HandlerFunc {
+func TypingMiddleware(next bot.HandlerFunc) bot.HandlerFunc {
 	return func(ctx context.Context, b *bot.Bot, update *models.Update) {
 		var chatID int64
 		if update.Message != nil {
@@ -21,6 +23,18 @@ func typingMiddleware(next bot.HandlerFunc) bot.HandlerFunc {
 			ChatID: chatID,
 			Action: models.ChatActionTyping,
 		})
+		next(ctx, b, update)
+	}
+}
+
+func CommandLoggingMiddleware(next bot.HandlerFunc) bot.HandlerFunc {
+	return func(ctx context.Context, b *bot.Bot, update *models.Update) {
+		if update.Message != nil && strings.HasPrefix(update.Message.Text, "/") {
+			slog.Info("Received command",
+				"command", update.Message.Text,
+				"chat_id", update.Message.Chat.ID,
+				"user_id", update.Message.From.ID)
+		}
 		next(ctx, b, update)
 	}
 }
