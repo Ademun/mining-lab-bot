@@ -12,7 +12,6 @@ type Repo interface {
 	Create(ctx context.Context, subReq RequestSubscription) error
 	Delete(ctx context.Context, uuid uuid.UUID) (bool, error)
 	Find(ctx context.Context, subFilters SubFilters, timeFilters TimeFilters) ([]ResponseSubscription, error)
-	Count(ctx context.Context) (int, error)
 }
 
 type subscriptionRepo struct {
@@ -95,20 +94,6 @@ func (s *subscriptionRepo) Find(ctx context.Context, subFilters SubFilters, time
 	}
 
 	return response, tx.Commit()
-}
-
-func (s *subscriptionRepo) Count(ctx context.Context) (int, error) {
-	query := `
-		select count(*)
-			from
-			subscriptions
-			`
-	var count int
-	err := s.db.QueryRowContext(ctx, query).Scan(&count)
-	if err != nil {
-		return 0, &errs.ErrQueryExecution{Operation: "Count", Query: query, Err: err}
-	}
-	return count, nil
 }
 
 func (s *subscriptionRepo) convertDBSubsToResponse(ctx context.Context, tx *sqlx.Tx, subs []DBSubscription, timeFilters TimeFilters) ([]ResponseSubscription, error) {
