@@ -76,10 +76,12 @@ func (s *subscriptionService) FindUsersBySlotInfo(ctx context.Context, slot poll
 		weekdays = append(weekdays, int(t.Weekday()))
 	}
 	subFilters := SubFilters{
-		Type:          &slot.Type,
-		LabNumber:     slot.Number,
-		LabAuditorium: slot.Auditorium,
-		Weekdays:      weekdays,
+		Type:      &slot.Type,
+		LabNumber: slot.Number,
+		Weekdays:  weekdays,
+	}
+	if slot.Type == polling.LabTypePerformance {
+		subFilters.LabAuditorium = slot.Auditorium
 	}
 	if slot.Type == polling.LabTypeDefence {
 		subFilters.LabDomain = &slot.Domain

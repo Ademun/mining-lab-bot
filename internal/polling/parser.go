@@ -13,7 +13,7 @@ var (
 	numRe      = regexp.MustCompile(`№\s*(\d+)`)
 	audRe      = regexp.MustCompile(`\((\d+)\s*\p{L}+\.\)`)
 	orderRe    = regexp.MustCompile(`\((\d+)-?\p{L}*\s*место\)`)
-	domainRe   = regexp.MustCompile(`\b(Электричество|Механика|Виртуальная\s*лаб\.?)\b`)
+	domainRe   = regexp.MustCompile(`(Электричество|Механика|Виртуальная\s*лаб\.?)`)
 	typePrefix = "Аудиторное"
 )
 
