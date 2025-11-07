@@ -1,5 +1,7 @@
 FROM golang:1.24-alpine AS builder
 
+ARG TARGETPLATFORM
+ARG BUILDPLATFORM
 RUN apk add --no-cache gcc musl-dev
 
 WORKDIR /build
@@ -10,7 +12,7 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=1 GOOS=linux GOARCH=arm64 \
+RUN CGO_ENABLED=1 \
     go build -ldflags '-linkmode external -extldflags "-static"' \
     -o mining-bot . \
 
