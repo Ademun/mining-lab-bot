@@ -5,8 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"sort"
-	"strings"
+	"strconv"
 	"time"
 )
 
@@ -64,24 +63,15 @@ type Slot struct {
 }
 
 func (s *Slot) Key() string {
-	times := make([]time.Time, 0, len(s.TimesTeachers))
-	for t := range s.TimesTeachers {
-		times = append(times, t)
+	orderString := ""
+	if s.Order != nil {
+		orderString = strconv.Itoa(*s.Order)
 	}
-	sort.Slice(times, func(i, j int) bool {
-		return times[i].Before(times[j])
-	})
-
-	timeStrings := make([]string, len(times))
-	for i, t := range times {
-		timeStrings[i] = t.Format("2006-01-02 15:04")
-	}
-
 	keyString := fmt.Sprintf("%v|%d|%v|%s",
 		s.Type,
 		s.Number,
 		s.Domain,
-		strings.Join(timeStrings, ","),
+		orderString,
 	)
 
 	hash := sha256.Sum256([]byte(keyString))
