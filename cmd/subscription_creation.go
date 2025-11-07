@@ -353,6 +353,7 @@ func (b *telegramBot) handleSubCreationConfirmation(ctx context.Context, api *bo
 			Text:      presentation.SubCreationSuccessMsg(),
 			ParseMode: models.ParseModeHTML,
 		})
+		b.notifService.NotifyNewSubscription(ctx, *sub)
 		return
 	}
 

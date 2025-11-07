@@ -102,6 +102,7 @@ func (s *notificationService) NotifyNewSubscription(ctx context.Context, sub sub
 }
 
 func (s *notificationService) findSlotsBySubscriptionInfo(ctx context.Context, sub subscription.RequestSubscription) ([]polling.Slot, error) {
+	slog.Info("sub", "sub", sub)
 	items := make([]polling.Slot, 0)
 	cacheSlots, errChan := s.cache.ListSlots(ctx)
 	prefTimes := subscription.LessonsToTimeRanges(sub.Lessons...)

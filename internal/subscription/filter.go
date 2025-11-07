@@ -1,6 +1,8 @@
 package subscription
 
 import (
+	"fmt"
+
 	"github.com/Ademun/mining-lab-bot/internal/polling"
 	"github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
@@ -35,11 +37,16 @@ func (f *SubFilters) buildQuery() (string, []interface{}, error) {
 		conditions = append(conditions, squirrel.Eq{"lab_domain": f.LabDomain})
 	}
 	if len(f.Weekdays) > 0 {
-		conditions = append(conditions, squirrel.Eq{"weekday": f.Weekdays})
+		conditions = append(conditions, squirrel.Or{
+			squirrel.Eq{"weekday": f.Weekdays},
+			squirrel.Eq{"weekday": nil},
+		})
 	}
 	if len(conditions) > 0 {
 		q = q.Where(conditions)
 	}
+
+	fmt.Println(q.ToSql())
 
 	return q.ToSql()
 }

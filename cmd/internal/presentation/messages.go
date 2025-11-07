@@ -182,7 +182,7 @@ func NotifyMsg(notif *notification.Notification) string {
 	sb.WriteString(repeatLineBreaks(3))
 	longName := slot.Name
 	if slot.Order != nil {
-		longName += fmt.Sprintf(" (%d-ое место)", slot.Order)
+		longName += fmt.Sprintf(" (%d-ое место)", *slot.Order)
 	}
 	sb.WriteString(fmt.Sprintf("<b>📚 Лаба №%d. %s</b>", slot.Number, longName))
 	sb.WriteString(repeatLineBreaks(2))
@@ -211,7 +211,9 @@ func NotifyMsg(notif *notification.Notification) string {
 				stringParts = append(stringParts, "⭐️ Ваше время")
 			}
 			sb.WriteString(fmt.Sprintf("<b>⠀⠀%s</b>", strings.Join(stringParts, " ")))
+			sb.WriteString(repeatLineBreaks(1))
 		}
+		sb.WriteString(repeatLineBreaks(1))
 	}
 	return sb.String()
 }
