@@ -20,9 +20,10 @@ type Config struct {
 }
 
 type GlobalConfig struct {
-	RedisAddr string `yaml:"redis_addr"`
-	RedisPass string `yaml:"redis_pass"`
-	RedisDB   int    `yaml:"redis_db"`
+	RedisAddr       string `yaml:"redis_addr"`
+	RedisPass       string `yaml:"redis_pass"`
+	RedisDB         int    `yaml:"redis_db"`
+	MetricsEndpoint string `yaml:"metrics_endpoint"`
 }
 
 type PollingConfig struct {

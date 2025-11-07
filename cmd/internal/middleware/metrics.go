@@ -1,9 +1,12 @@
 package middleware
 
-import "github.com/prometheus/client_golang/prometheus"
+import (
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+)
 
 var (
-	commandUsageMetrics = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	commandUsageMetrics = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "telegram_command_usage",
 		Help: "Command usage",
 	}, []string{"command"})

@@ -5,10 +5,11 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 var (
-	httpRequestsMetrics = prometheus.NewSummaryVec(prometheus.SummaryOpts{
+	httpRequestsMetrics = promauto.NewSummaryVec(prometheus.SummaryOpts{
 		Name: "polling_http_requests_metrics",
 		Help: "HTTP request duration in seconds by status code",
 		Objectives: map[float64]float64{
@@ -19,12 +20,12 @@ var (
 		},
 	}, []string{"status_code"})
 
-	parsingErrorsCountMetrics = prometheus.NewCounter(prometheus.CounterOpts{
+	parsingErrorsCountMetrics = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "polling_parsing_errors_count",
 		Help: "Number of parsing errors",
 	})
 
-	parsingDurationMetrics = prometheus.NewSummary(prometheus.SummaryOpts{
+	parsingDurationMetrics = promauto.NewSummary(prometheus.SummaryOpts{
 		Name: "polling_parsing_duration",
 		Help: "Duration in seconds of parsed slots",
 		Objectives: map[float64]float64{
@@ -35,7 +36,7 @@ var (
 		},
 	})
 
-	pollingDurationMetrics = prometheus.NewSummary(prometheus.SummaryOpts{
+	pollingDurationMetrics = promauto.NewSummary(prometheus.SummaryOpts{
 		Name: "polling_duration",
 		Help: "Slot polling duration in seconds",
 		Objectives: map[float64]float64{
@@ -46,7 +47,7 @@ var (
 		},
 	})
 
-	slotCountMetrics = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	slotCountMetrics = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "polling_slot_count",
 		Help: "Slot count by type",
 	}, []string{"type"})
@@ -67,7 +68,7 @@ func recordPolling(d time.Duration) {
 	pollingDurationMetrics.Observe(d.Seconds())
 }
 
-func recordSlot(slotType LabType) {
+func recordSlot(slotType LabType, total int) {
 	var enType string
 	switch slotType {
 	case LabTypePerformance:
@@ -75,5 +76,5 @@ func recordSlot(slotType LabType) {
 	case LabTypeDefence:
 		enType = "defence"
 	}
-	slotCountMetrics.WithLabelValues(enType).Inc()
+	slotCountMetrics.WithLabelValues(enType).Set(float64(total))
 }

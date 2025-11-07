@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Ademun/mining-lab-bot/cmd"
+	"github.com/Ademun/mining-lab-bot/internal/metrics"
 	"github.com/Ademun/mining-lab-bot/internal/notification"
 	"github.com/Ademun/mining-lab-bot/internal/polling"
 	"github.com/Ademun/mining-lab-bot/internal/subscription"
@@ -44,12 +45,11 @@ func main() {
 		DB:       cfg.GlobalConfig.RedisDB,
 	})
 
+	metrics.Listen(cfg.GlobalConfig.MetricsEndpoint)
+
 	subscriptionRepo := subscription.NewRepo(db)
 
 	subscriptionService := subscription.New(subscriptionRepo)
-	if err := subscriptionService.Start(ctx); err != nil {
-		slog.Error("Fatal error", "error", err)
-	}
 
 	bot, err := cmd.NewBot(subscriptionService, &cfg.TelegramConfig, cache)
 	if err != nil {

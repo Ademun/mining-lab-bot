@@ -2,6 +2,7 @@ global:
   redis_addr: "localhost:6379"
   redis_pass: ""
   redis_db: 0
+  metrics_endpoint: "localhost:8080"
 polling:
   service_url: "https://dikidi.net/550001?p=1.pi-ssm"
   mode: "normal"
