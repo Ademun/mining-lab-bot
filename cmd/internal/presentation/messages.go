@@ -2,6 +2,7 @@ package presentation
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -195,10 +196,18 @@ func NotifyMsg(notif *notification.Notification) string {
 		slotTimes = append(slotTimes, t)
 	}
 	grouped := utils.GroupTimesByDate(slotTimes)
-	for date, times := range grouped {
+	sortedDates := make([]time.Time, 0, len(grouped))
+	for date := range grouped {
+		sortedDates = append(sortedDates, date)
+	}
+	slices.SortFunc(sortedDates, func(a, b time.Time) int {
+		return a.Second() - b.Second()
+	})
+	for _, date := range sortedDates {
 		dateRelative := utils.FormatDateRelative(date, time.Now())
 		sb.WriteString(fmt.Sprintf("<b>⠀⠀%s:</b>", dateRelative))
 		sb.WriteString(repeatLineBreaks(1))
+		times := grouped[date]
 		for _, t := range times {
 			stringParts := make([]string, 0)
 			timeStart := t.Format("15:04")
