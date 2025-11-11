@@ -101,7 +101,7 @@ func LinkKbd(url string) *models.InlineKeyboardMarkup {
 	return &models.InlineKeyboardMarkup{
 		InlineKeyboard: [][]models.InlineKeyboardButton{
 			{
-				{Text: "🔗 ЗАПИСАТЬСЯ", URL: url},
+				{Text: "🔗 ЗАПИСАТЬСЯ", CallbackData: url},
 			},
 		},
 	}
