@@ -1,8 +1,6 @@
 package subscription
 
 import (
-	"fmt"
-
 	"github.com/Ademun/mining-lab-bot/internal/polling"
 	"github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
@@ -45,8 +43,6 @@ func (f *SubFilters) buildQuery() (string, []interface{}, error) {
 	if len(conditions) > 0 {
 		q = q.Where(conditions)
 	}
-
-	fmt.Println(q.ToSql())
 
 	return q.ToSql()
 }
