@@ -134,13 +134,8 @@ func (s *pollingService) poll(ctx context.Context) {
 				slog.Warn("Parsing error", "error", err, "service", logger.ServicePolling)
 			}
 
-			perfCount, defCount := 0, 0
 			for _, slot := range slots {
-				if slot.Type == LabTypePerformance {
-					perfCount++
-				} else {
-					defCount++
-				}
+				recordSlot(slot.Type)
 				sem <- struct{}{}
 				wg.Add(1)
 				go func(slot Slot) {
@@ -149,8 +144,6 @@ func (s *pollingService) poll(ctx context.Context) {
 					<-sem
 				}(slot)
 			}
-			recordSlot(LabTypePerformance, perfCount)
-			recordSlot(LabTypeDefence, defCount)
 		case err, ok := <-errChan:
 			if !ok {
 				errChan = nil

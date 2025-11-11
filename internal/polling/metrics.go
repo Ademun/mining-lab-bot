@@ -47,7 +47,7 @@ var (
 		},
 	})
 
-	slotCountMetrics = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	slotCountMetrics = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "polling_slot_count",
 		Help: "Slot count by type",
 	}, []string{"type"})
@@ -68,7 +68,7 @@ func recordPolling(d time.Duration) {
 	pollingDurationMetrics.Observe(d.Seconds())
 }
 
-func recordSlot(slotType LabType, total int) {
+func recordSlot(slotType LabType) {
 	var enType string
 	switch slotType {
 	case LabTypePerformance:
@@ -76,5 +76,5 @@ func recordSlot(slotType LabType, total int) {
 	case LabTypeDefence:
 		enType = "defence"
 	}
-	slotCountMetrics.WithLabelValues(enType).Set(float64(total))
+	slotCountMetrics.WithLabelValues(enType).Inc()
 }
