@@ -17,6 +17,7 @@ const (
 	StepAwaitingLabLessons              ConversationStep = "awaiting_lab_lessons"
 	StepAwaitingSubCreationConfirmation ConversationStep = "awaiting_sub_creation_confirmation"
 	StepAwaitingListingSubsAction       ConversationStep = "awaiting_listing_action"
+	StepAwaitingRedirect                ConversationStep = "awaiting_redirect"
 )
 
 type StateData interface {
@@ -47,7 +48,7 @@ func (d *SubscriptionListingFlowData) StateData() {}
 
 func dataTypeForStep(step ConversationStep) StateData {
 	switch step {
-	case StepIdle:
+	case StepIdle, StepAwaitingRedirect:
 		return &IdleData{}
 	case StepAwaitingLabType,
 		StepAwaitingLabNumber,
