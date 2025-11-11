@@ -74,6 +74,7 @@ func (b *telegramBot) Start(ctx context.Context) {
 	b.router.RegisterHandler(fsm.StepAwaitingLabLessons, b.handleLessons)
 	b.router.RegisterHandler(fsm.StepAwaitingSubCreationConfirmation, b.handleSubCreationConfirmation)
 	b.router.RegisterHandler(fsm.StepAwaitingListingSubsAction, b.handleListingSubsAction)
+	b.router.RegisterHandler(fsm.StepAwaitingRedirect, b.handleRedirect)
 	go b.api.Start(ctx)
 }
 
@@ -91,21 +92,6 @@ func (b *telegramBot) SendMessage(ctx context.Context, params *bot.SendMessagePa
 			Text:   presentation.GenericServiceErrorMsg(),
 		})
 	}
-}
-
-func (b *telegramBot) SendNotification(ctx context.Context, notif notification.Notification) {
-	targetUser := notif.UserID
-
-	hidePreview := true
-	b.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID: targetUser,
-		Text:   presentation.NotifyMsg(&notif),
-		LinkPreviewOptions: &models.LinkPreviewOptions{
-			IsDisabled: &hidePreview,
-		},
-		ReplyMarkup: presentation.LinkKbd(notif.Slot.URL),
-		ParseMode:   models.ParseModeHTML,
-	})
 }
 
 func (b *telegramBot) AnswerCallbackQuery(ctx context.Context, params *bot.AnswerCallbackQueryParams) {
