@@ -49,6 +49,8 @@ func (s *notificationService) SendNotification(ctx context.Context, slot polling
 		return
 	}
 
+	recordSlot(slot.Type)
+
 	if err := s.cache.Set(ctx, slot); err != nil {
 		slog.Error("Redis error", "error", err, "service", logger.ServiceNotification)
 	}

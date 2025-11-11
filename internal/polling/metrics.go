@@ -46,11 +46,6 @@ var (
 			0.99: 0.001,
 		},
 	})
-
-	slotCountMetrics = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "polling_slot_count",
-		Help: "Slot count by type",
-	}, []string{"type"})
 )
 
 func recordRequest(d time.Duration, statusCode int) {
@@ -66,15 +61,4 @@ func recordParsing(d time.Duration, hasError bool) {
 
 func recordPolling(d time.Duration) {
 	pollingDurationMetrics.Observe(d.Seconds())
-}
-
-func recordSlot(slotType LabType) {
-	var enType string
-	switch slotType {
-	case LabTypePerformance:
-		enType = "performance"
-	case LabTypeDefence:
-		enType = "defence"
-	}
-	slotCountMetrics.WithLabelValues(enType).Inc()
 }
