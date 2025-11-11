@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/Ademun/mining-lab-bot/cmd/fsm"
+	"github.com/Ademun/mining-lab-bot/cmd/internal/middleware"
 	"github.com/Ademun/mining-lab-bot/cmd/internal/presentation"
 	"github.com/Ademun/mining-lab-bot/internal/notification"
 	"github.com/go-telegram/bot"
@@ -25,6 +26,8 @@ func (b *telegramBot) SendNotification(ctx context.Context, notif notification.N
 
 func (b *telegramBot) handleRedirect(ctx context.Context, api *bot.Bot, update *models.Update, data fsm.StateData) {
 	userID := update.CallbackQuery.From.ID
+
+	middleware.RecordLinkClick()
 
 	b.TryTransition(ctx, userID, fsm.StepIdle, &fsm.IdleData{})
 
