@@ -256,7 +256,7 @@ func (b *telegramBot) handleWeekday(ctx context.Context, api *bot.Bot, update *m
 	b.TryTransition(ctx, userID, fsm.StepAwaitingLabLessons, newData)
 	b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID:      userID,
-		Text:        presentation.AskLessonsMsg(),
+		Text:        presentation.AskLessonsMsg(nil),
 		ParseMode:   models.ParseModeHTML,
 		ReplyMarkup: presentation.SelectLessonKbd(utils.DefaultLessons),
 	})
@@ -322,6 +322,12 @@ func (b *telegramBot) handleLessons(ctx context.Context, api *bot.Bot, update *m
 	}
 
 	b.TryTransition(ctx, userID, fsm.StepAwaitingLabLessons, newData)
+	b.EditMessageText(ctx, &bot.EditMessageTextParams{
+		ChatID:    userID,
+		MessageID: update.CallbackQuery.Message.Message.ID,
+		Text:      presentation.AskLessonsMsg(newData.Lessons),
+		ParseMode: models.ParseModeHTML,
+	})
 	b.EditMessageReplyMarkup(ctx, &bot.EditMessageReplyMarkupParams{
 		ChatID:      userID,
 		MessageID:   update.CallbackQuery.Message.Message.ID,
@@ -431,6 +437,9 @@ func extractLesson(update *models.Update) *int {
 }
 
 func handleCancellation(ctx context.Context, b *telegramBot, update *models.Update) bool {
+	if update.CallbackQuery == nil {
+		return false
+	}
 	userID := update.CallbackQuery.From.ID
 	cancelledStr := update.CallbackQuery.Data
 	if strings.TrimPrefix(cancelledStr, "sub_creation:") != "cancel" {

@@ -85,8 +85,19 @@ func AskWeekdayMsg() string {
 	return sb.String()
 }
 
-func AskLessonsMsg() string {
-	return "<b>🕐 Выбери время</b>"
+func AskLessonsMsg(lessons []int) string {
+	var sb strings.Builder
+	sb.WriteString("<b>🕐 Выбери время</b>")
+	if len(lessons) > 0 {
+		sb.WriteString(repeatLineBreaks(2))
+		sb.WriteString("<b>Выбранные пары:</b>")
+		slices.Sort(lessons)
+		for _, lesson := range lessons {
+			sb.WriteString(repeatLineBreaks(1))
+			sb.WriteString(fmt.Sprintf("<b>%s</b>", utils.LessonNumberToLessonName[lesson]))
+		}
+	}
+	return sb.String()
 }
 
 func AskSubCreationConfirmationMsg(sub *subscription.RequestSubscription) string {
