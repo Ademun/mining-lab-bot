@@ -13,6 +13,7 @@ func SelectLabTypeKbd() *models.InlineKeyboardMarkup {
 		InlineKeyboard: [][]models.InlineKeyboardButton{
 			{{Text: "Выполнение", CallbackData: "sub_creation:type:performance"}},
 			{{Text: "Защита", CallbackData: "sub_creation:type:defence"}},
+			{{Text: "❌ Отменить", CallbackData: "sub_creation:cancel"}},
 		},
 	}
 }
@@ -23,6 +24,7 @@ func SelectLabDomainKbd() *models.InlineKeyboardMarkup {
 			{{Text: "Механика", CallbackData: "sub_creation:domain:mechanics"}},
 			{{Text: "Виртуалка", CallbackData: "sub_creation:domain:virtual"}},
 			{{Text: "Электричество", CallbackData: "sub_creation:domain:electricity"}},
+			{{Text: "❌ Отменить", CallbackData: "sub_creation:cancel"}},
 		},
 	}
 }
@@ -38,6 +40,7 @@ func SelectWeekdayKbd() *models.InlineKeyboardMarkup {
 			{{Text: "Суббота", CallbackData: "sub_creation:weekday:6"}},
 			{{Text: "Воскресенье", CallbackData: "sub_creation:weekday:0"}},
 			{{Text: "⏭️ Пропустить", CallbackData: "sub_creation:weekday:skip"}},
+			{{Text: "❌ Отменить", CallbackData: "sub_creation:cancel"}},
 		},
 	}
 }
@@ -52,9 +55,10 @@ func SelectLessonKbd(lessons []utils.Lesson) *models.InlineKeyboardMarkup {
 		}
 	}
 
-	keyboard.InlineKeyboard = append(keyboard.InlineKeyboard, []models.InlineKeyboardButton{
-		{Text: "✅ Готово", CallbackData: "sub_creation:lesson:skip"},
-	})
+	keyboard.InlineKeyboard = append(keyboard.InlineKeyboard, [][]models.InlineKeyboardButton{
+		{{Text: "✅ Готово", CallbackData: "sub_creation:lesson:skip"}},
+		{{Text: "❌ Отменить", CallbackData: "sub_creation:cancel"}},
+	}...)
 
 	return keyboard
 }
@@ -64,7 +68,7 @@ func AskSubCreationConfirmationKbd() *models.InlineKeyboardMarkup {
 		InlineKeyboard: [][]models.InlineKeyboardButton{
 			{
 				{Text: "✅ Создать", CallbackData: "sub_creation:confirm:create"},
-				{Text: "❌ Отменить", CallbackData: "sub_creation:confirm:cancel"},
+				{Text: "❌ Отменить", CallbackData: "sub_creation:cancel"},
 			},
 		},
 	}
