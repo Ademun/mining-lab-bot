@@ -37,6 +37,9 @@ func (b *telegramBot) handleSubscriptionCreation(ctx context.Context, api *bot.B
 }
 
 func (b *telegramBot) handleLabType(ctx context.Context, api *bot.Bot, update *models.Update, data fsm.StateData) {
+	if handleCancellation(ctx, b, update) {
+		return
+	}
 	if update.CallbackQuery == nil {
 		return
 	}
@@ -64,13 +67,17 @@ func (b *telegramBot) handleLabType(ctx context.Context, api *bot.Bot, update *m
 
 	b.TryTransition(ctx, userID, fsm.StepAwaitingLabNumber, newData)
 	b.SendMessage(ctx, &bot.SendMessageParams{
-		ChatID:    userID,
-		Text:      presentation.AskLabNumberMsg(),
-		ParseMode: models.ParseModeHTML,
+		ChatID:      userID,
+		Text:        presentation.AskLabNumberMsg(),
+		ParseMode:   models.ParseModeHTML,
+		ReplyMarkup: presentation.SubCreationCancelKbd(),
 	})
 }
 
 func (b *telegramBot) handleLabNumber(ctx context.Context, api *bot.Bot, update *models.Update, data fsm.StateData) {
+	if handleCancellation(ctx, b, update) {
+		return
+	}
 	if update.Message == nil {
 		return
 	}
@@ -106,9 +113,10 @@ func (b *telegramBot) handleLabNumber(ctx context.Context, api *bot.Bot, update 
 	case polling.LabTypePerformance:
 		b.TryTransition(ctx, userID, fsm.StepAwaitingLabAuditorium, newData)
 		b.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID:    userID,
-			Text:      presentation.AskLabAuditoriumMsg(),
-			ParseMode: models.ParseModeHTML,
+			ChatID:      userID,
+			Text:        presentation.AskLabAuditoriumMsg(),
+			ParseMode:   models.ParseModeHTML,
+			ReplyMarkup: presentation.SubCreationCancelKbd(),
 		})
 	case polling.LabTypeDefence:
 		b.TryTransition(ctx, userID, fsm.StepAwaitingLabDomain, newData)
@@ -122,6 +130,9 @@ func (b *telegramBot) handleLabNumber(ctx context.Context, api *bot.Bot, update 
 }
 
 func (b *telegramBot) handleLabAuditorium(ctx context.Context, api *bot.Bot, update *models.Update, data fsm.StateData) {
+	if handleCancellation(ctx, b, update) {
+		return
+	}
 	if update.Message == nil {
 		return
 	}
@@ -162,6 +173,9 @@ func (b *telegramBot) handleLabAuditorium(ctx context.Context, api *bot.Bot, upd
 }
 
 func (b *telegramBot) handleLabDomain(ctx context.Context, api *bot.Bot, update *models.Update, data fsm.StateData) {
+	if handleCancellation(ctx, b, update) {
+		return
+	}
 	if update.CallbackQuery == nil {
 		return
 	}
@@ -197,6 +211,9 @@ func (b *telegramBot) handleLabDomain(ctx context.Context, api *bot.Bot, update 
 }
 
 func (b *telegramBot) handleWeekday(ctx context.Context, api *bot.Bot, update *models.Update, data fsm.StateData) {
+	if handleCancellation(ctx, b, update) {
+		return
+	}
 	if update.CallbackQuery == nil {
 		return
 	}
@@ -249,6 +266,9 @@ func (b *telegramBot) handleWeekday(ctx context.Context, api *bot.Bot, update *m
 }
 
 func (b *telegramBot) handleLessons(ctx context.Context, api *bot.Bot, update *models.Update, data fsm.StateData) {
+	if handleCancellation(ctx, b, update) {
+		return
+	}
 	if update.CallbackQuery == nil {
 		return
 	}
@@ -310,11 +330,13 @@ func (b *telegramBot) handleLessons(ctx context.Context, api *bot.Bot, update *m
 }
 
 func (b *telegramBot) handleSubCreationConfirmation(ctx context.Context, api *bot.Bot, update *models.Update, data fsm.StateData) {
+	if handleCancellation(ctx, b, update) {
+		return
+	}
 	if update.CallbackQuery == nil {
 		return
 	}
 	userID := update.CallbackQuery.From.ID
-	confirmed := extractConfirmed(update)
 
 	b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
 		CallbackQueryID: update.CallbackQuery.ID,
@@ -334,35 +356,26 @@ func (b *telegramBot) handleSubCreationConfirmation(ctx context.Context, api *bo
 		return
 	}
 
-	if confirmed {
-		sub := parseFlowData(newData)
-		b.TryTransition(ctx, userID, fsm.StepIdle, &fsm.IdleData{})
+	sub := parseFlowData(newData)
+	b.TryTransition(ctx, userID, fsm.StepIdle, &fsm.IdleData{})
 
-		err := b.subscriptionService.Subscribe(ctx, *sub)
-		if err != nil {
-			b.SendMessage(ctx, &bot.SendMessageParams{
-				ChatID:    userID,
-				Text:      presentation.GenericServiceErrorMsg(),
-				ParseMode: models.ParseModeHTML,
-			})
-			return
-		}
-
+	err := b.subscriptionService.Subscribe(ctx, *sub)
+	if err != nil {
 		b.SendMessage(ctx, &bot.SendMessageParams{
 			ChatID:    userID,
-			Text:      presentation.SubCreationSuccessMsg(),
+			Text:      presentation.GenericServiceErrorMsg(),
 			ParseMode: models.ParseModeHTML,
 		})
-		b.notifService.NotifyNewSubscription(ctx, *sub)
 		return
 	}
 
-	b.TryTransition(ctx, userID, fsm.StepIdle, nil)
 	b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID:    userID,
-		Text:      presentation.SubCreationCancelledMsg(),
+		Text:      presentation.SubCreationSuccessMsg(),
 		ParseMode: models.ParseModeHTML,
 	})
+	b.notifService.NotifyNewSubscription(ctx, *sub)
+	return
 }
 
 func extractLabType(update *models.Update) polling.LabType {
@@ -417,10 +430,21 @@ func extractLesson(update *models.Update) *int {
 	return &labLessonInt
 }
 
-func extractConfirmed(update *models.Update) bool {
-	confirmedStr := update.CallbackQuery.Data
-	confirmedStr = strings.TrimPrefix(confirmedStr, "sub_creation:confirm:")
-	return confirmedStr == "create"
+func handleCancellation(ctx context.Context, b *telegramBot, update *models.Update) bool {
+	userID := update.CallbackQuery.From.ID
+	cancelledStr := update.CallbackQuery.Data
+	if strings.TrimPrefix(cancelledStr, "sub_creation:") != "cancel" {
+		return false
+	}
+
+	b.TryTransition(ctx, userID, fsm.StepIdle, nil)
+	b.SendMessage(ctx, &bot.SendMessageParams{
+		ChatID:    userID,
+		Text:      presentation.SubCreationCancelledMsg(),
+		ParseMode: models.ParseModeHTML,
+	})
+
+	return true
 }
 
 func parseFlowData(data *fsm.SubscriptionCreationFlowData) *subscription.RequestSubscription {

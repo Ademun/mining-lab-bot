@@ -74,6 +74,14 @@ func AskSubCreationConfirmationKbd() *models.InlineKeyboardMarkup {
 	}
 }
 
+func SubCreationCancelKbd() *models.InlineKeyboardMarkup {
+	return &models.InlineKeyboardMarkup{
+		InlineKeyboard: [][]models.InlineKeyboardButton{
+			{{Text: "❌ Отменить", CallbackData: "sub_creation:cancel"}},
+		},
+	}
+}
+
 func ListSubsKbd(subUUID uuid.UUID, subIdx, totalSubs int) *models.InlineKeyboardMarkup {
 	keyboard := &models.InlineKeyboardMarkup{
 		InlineKeyboard: make([][]models.InlineKeyboardButton, 0),
