@@ -88,8 +88,9 @@ func (b *telegramBot) SendMessage(ctx context.Context, params *bot.SendMessagePa
 			"error", err,
 			"params", params)
 		b.api.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID: params.ChatID,
-			Text:   presentation.GenericServiceErrorMsg(),
+			ChatID:    params.ChatID,
+			Text:      presentation.GenericServiceErrorMsg(),
+			ParseMode: models.ParseModeHTML,
 		})
 	}
 }

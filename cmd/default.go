@@ -27,8 +27,9 @@ func handleDefault(ctx context.Context, api *bot.Bot, update *models.Update) {
 			"user_id", userID,
 			"service", logger.TelegramBot)
 		api.SendMessage(ctx, &bot.SendMessageParams{
-			ChatID: userID,
-			Text:   presentation.GenericServiceErrorMsg(),
+			ChatID:    userID,
+			Text:      presentation.GenericServiceErrorMsg(),
+			ParseMode: models.ParseModeHTML,
 		})
 	}
 }
