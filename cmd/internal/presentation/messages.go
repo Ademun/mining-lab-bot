@@ -39,6 +39,8 @@ func StartCmdMsg() string {
 	return sb.String()
 }
 
+// Feedback text flow
+
 func FeedbackCmdMsg() string {
 	return "<b>🖊️ Напишите ваши пожелания и идеи</b>"
 }
@@ -54,6 +56,8 @@ func FeedbackRedirectMsg(userID int64, feedback string) string {
 func FeedbackReplyMsg() string {
 	return "<b>😊 Спасибо за ваше предложение! Оно будет принято к рассмотрению</b>"
 }
+
+// ===
 
 func GenericServiceErrorMsg() string {
 	return "<b>❌ Произошла ошибка сервиса. Попробуйте позже</b>"
