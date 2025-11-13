@@ -198,6 +198,8 @@ func NotifyMsg(notif *notification.Notification) string {
 	}
 	sb.WriteString(fmt.Sprintf("<b>📚 Лаба №%d. %s</b>", slot.Number, longName))
 	sb.WriteString(repeatLineBreaks(2))
+	sb.WriteString(fmt.Sprintf("<b>⚛️ %s</b>", slot.Domain))
+	sb.WriteString(repeatLineBreaks(2))
 	sb.WriteString(fmt.Sprintf("<b>🚪 Аудитория №%d</b>", slot.Auditorium))
 	sb.WriteString(repeatLineBreaks(2))
 	sb.WriteString("<b>🗓️ Когда:</b>")
