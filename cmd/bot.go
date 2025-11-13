@@ -39,7 +39,7 @@ type telegramBot struct {
 func NewBot(subService subscription.Service, opts *config.TelegramConfig, redis *redis.Client) (Bot, error) {
 	router := fsm.NewRouter(fsm.NewFSM(redis))
 	botOpts := []bot.Option{
-		bot.WithMiddlewares(middleware.CommandLoggingMiddleware, middleware.TypingMiddleware, router.Middleware),
+		bot.WithMiddlewares(middleware.CommandLoggingMiddleware, router.Middleware),
 		bot.WithDefaultHandler(handleDefault),
 	}
 	b, err := bot.New(opts.BotToken, botOpts...)
@@ -74,7 +74,6 @@ func (b *telegramBot) Start(ctx context.Context) {
 	b.router.RegisterHandler(fsm.StepAwaitingLabLessons, b.handleLessons)
 	b.router.RegisterHandler(fsm.StepAwaitingSubCreationConfirmation, b.handleSubCreationConfirmation)
 	b.router.RegisterHandler(fsm.StepAwaitingListingSubsAction, b.handleListingSubsAction)
-	b.router.RegisterHandler(fsm.StepAwaitingRedirect, b.handleRedirect)
 	go b.api.Start(ctx)
 }
 
@@ -83,6 +82,20 @@ func (b *telegramBot) SetNotificationService(svc notification.Service) {
 }
 
 func (b *telegramBot) SendMessage(ctx context.Context, params *bot.SendMessageParams) {
+	if _, err := b.api.SendChatAction(ctx, &bot.SendChatActionParams{
+		ChatID: params.ChatID,
+		Action: models.ChatActionTyping,
+	}); err != nil {
+		slog.Error("Failed to send chat action",
+			"error", err,
+			"params", params)
+		b.api.SendMessage(ctx, &bot.SendMessageParams{
+			ChatID:    params.ChatID,
+			Text:      presentation.GenericServiceErrorMsg(),
+			ParseMode: models.ParseModeHTML,
+		})
+	}
+
 	if _, err := b.api.SendMessage(ctx, params); err != nil {
 		slog.Error("Failed to send message",
 			"error", err,

@@ -10,17 +10,8 @@ var (
 		Name: "telegram_command_usage",
 		Help: "Command usage",
 	}, []string{"command"})
-
-	linkClicksMetrics = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "telegram_link_clicks",
-		Help: "Link clicks",
-	})
 )
 
 func recordCommand(command string) {
 	commandUsageMetrics.WithLabelValues(command).Inc()
-}
-
-func RecordLinkClick() {
-	linkClicksMetrics.Inc()
 }
