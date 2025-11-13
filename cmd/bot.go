@@ -66,6 +66,8 @@ func (b *telegramBot) Start(ctx context.Context) {
 		bot.MatchTypeCommandStartOnly, b.handleListingSubscriptions)
 	b.api.RegisterHandler(bot.HandlerTypeMessageText, "list",
 		bot.MatchTypeCommandStartOnly, b.handleListingSubscriptions)
+	b.api.RegisterHandler(bot.HandlerTypeMessageText, "feed",
+		bot.MatchTypeCommandStartOnly, b.handleFeedbackMsg)
 	b.router.RegisterHandler(fsm.StepAwaitingLabType, b.handleLabType)
 	b.router.RegisterHandler(fsm.StepAwaitingLabNumber, b.handleLabNumber)
 	b.router.RegisterHandler(fsm.StepAwaitingLabAuditorium, b.handleLabAuditorium)
@@ -74,6 +76,7 @@ func (b *telegramBot) Start(ctx context.Context) {
 	b.router.RegisterHandler(fsm.StepAwaitingLabLessons, b.handleLessons)
 	b.router.RegisterHandler(fsm.StepAwaitingSubCreationConfirmation, b.handleSubCreationConfirmation)
 	b.router.RegisterHandler(fsm.StepAwaitingListingSubsAction, b.handleListingSubsAction)
+	b.router.RegisterHandler(fsm.StepAwaitingFeedbackMsg, b.handleFeedbackMsgText)
 	go b.api.Start(ctx)
 }
 
