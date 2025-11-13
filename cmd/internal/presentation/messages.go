@@ -39,6 +39,22 @@ func StartCmdMsg() string {
 	return sb.String()
 }
 
+func FeedbackCmdMsg() string {
+	return "<b>🖊️ Напишите ваши пожелания и идеи</b>"
+}
+
+func FeedbackRedirectMsg(userID int64, feedback string) string {
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("<b>От пользователя: %d</b>", userID))
+	sb.WriteString(repeatLineBreaks(2))
+	sb.WriteString(feedback)
+	return sb.String()
+}
+
+func FeedbackReplyMsg() string {
+	return "<b>😊 Спасибо за ваше предложение! Оно будет принято к рассмотрению</b>"
+}
+
 func GenericServiceErrorMsg() string {
 	return "<b>❌ Произошла ошибка сервиса. Попробуйте позже</b>"
 }
