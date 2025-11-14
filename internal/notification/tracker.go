@@ -9,7 +9,8 @@ import (
 )
 
 func (s *notificationService) trackSlot(ctx context.Context, slot polling.Slot) {
-	exists, err := s.cache.Exists(ctx, slot.Key())
+	key := "track:" + slot.Key()
+	exists, err := s.cache.Exists(ctx, key)
 	if err != nil {
 		slog.Error("Redis error", "error", err, "service", logger.ServiceNotification)
 		return
@@ -18,8 +19,6 @@ func (s *notificationService) trackSlot(ctx context.Context, slot polling.Slot) 
 	if exists {
 		return
 	}
-
-	key := "track:" + slot.Key()
 
 	if err = s.cache.Set(ctx, slot, key, s.options.CacheTTL); err != nil {
 		slog.Error("Redis error", "error", err, "service", logger.ServiceNotification)

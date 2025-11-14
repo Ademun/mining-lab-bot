@@ -67,14 +67,14 @@ func (s *notificationService) Stop(ctx context.Context) {
 
 func (s *notificationService) SendNotification(ctx context.Context, slot polling.Slot) {
 	defer s.trackSlot(ctx, slot)
-	exists, err := s.cache.Exists(ctx, slot.Key())
+	exists, err := s.cache.Exists(ctx, s.options.RedisPrefix+slot.Key())
 	if err != nil {
 		slog.Error("Redis error", "error", err, "service", logger.ServiceNotification)
 	}
 
 	if exists {
 		// Since the slot can have different available times, we should update the old one
-		if err := s.cache.Set(ctx, slot, s.options.RedisPrefix, s.options.CacheTTL); err != nil {
+		if err := s.cache.Set(ctx, slot, s.options.RedisPrefix+slot.Key(), s.options.CacheTTL); err != nil {
 			slog.Error("Redis error", "error", err, "service", logger.ServiceNotification)
 		}
 		return
@@ -82,7 +82,7 @@ func (s *notificationService) SendNotification(ctx context.Context, slot polling
 
 	recordSlot(slot.Type)
 
-	if err := s.cache.Set(ctx, slot, s.options.RedisPrefix, s.options.CacheTTL); err != nil {
+	if err := s.cache.Set(ctx, slot, s.options.RedisPrefix+slot.Key(), s.options.CacheTTL); err != nil {
 		slog.Error("Redis error", "error", err, "service", logger.ServiceNotification)
 	}
 
