@@ -3,6 +3,7 @@ package notification
 import (
 	"context"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/Ademun/mining-lab-bot/internal/polling"
@@ -10,6 +11,7 @@ import (
 	"github.com/Ademun/mining-lab-bot/pkg/config"
 	"github.com/Ademun/mining-lab-bot/pkg/logger"
 	"github.com/redis/go-redis/v9"
+	"github.com/robfig/cron/v3"
 	"golang.org/x/time/rate"
 )
 
@@ -19,11 +21,13 @@ type Service interface {
 }
 
 type notificationService struct {
-	subService subscription.Service
-	notifier   SlotNotifier
-	options    config.NotificationConfig
-	limiter    *rate.Limiter
-	cache      SlotCache
+	subService    subscription.Service
+	notifier      SlotNotifier
+	options       config.NotificationConfig
+	limiter       *rate.Limiter
+	cache         SlotCache
+	cronScheduler *cron.Cron
+	mu            sync.Mutex
 }
 
 func New(subService subscription.Service, notifier SlotNotifier, client *redis.Client, opts *config.NotificationConfig) Service {
@@ -32,11 +36,35 @@ func New(subService subscription.Service, notifier SlotNotifier, client *redis.C
 		notifier:   notifier,
 		options:    *opts,
 		limiter:    rate.NewLimiter(opts.NotificationRate, 1),
-		cache:      *NewSlotCache(client, opts.RedisPrefix, opts.CacheTTL),
+		cache:      *NewSlotCache(client),
+		mu:         sync.Mutex{},
 	}
 }
 
+func (s *notificationService) Start(ctx context.Context) error {
+	slog.Info("Starting", "service", logger.ServiceNotification)
+	c := cron.New(cron.WithLocation(time.Local))
+	_, err := c.AddFunc("0 0 * * *", func() {
+		slog.Info("Resetting unique cache", "service", logger.ServiceNotification)
+		s.resetUniqueSlots(ctx)
+	})
+	if err != nil {
+		slog.Info("Cron error", "error", err, "service", logger.ServiceNotification)
+	}
+	c.Start()
+	s.cronScheduler = c
+	slog.Info("Started", "service", logger.ServiceNotification)
+	return nil
+}
+
+func (s *notificationService) Stop(ctx context.Context) {
+	<-ctx.Done()
+	s.cronScheduler.Stop()
+	slog.Info("Stopped", "service", logger.ServiceNotification)
+}
+
 func (s *notificationService) SendNotification(ctx context.Context, slot polling.Slot) {
+	defer s.trackSlot(ctx, slot)
 	exists, err := s.cache.Exists(ctx, slot.Key())
 	if err != nil {
 		slog.Error("Redis error", "error", err, "service", logger.ServiceNotification)
@@ -44,7 +72,7 @@ func (s *notificationService) SendNotification(ctx context.Context, slot polling
 
 	if exists {
 		// Since the slot can have different available times, we should update the old one
-		if err := s.cache.Set(ctx, slot); err != nil {
+		if err := s.cache.Set(ctx, slot, s.options.RedisPrefix, s.options.CacheTTL); err != nil {
 			slog.Error("Redis error", "error", err, "service", logger.ServiceNotification)
 		}
 		return
@@ -52,7 +80,7 @@ func (s *notificationService) SendNotification(ctx context.Context, slot polling
 
 	recordSlot(slot.Type)
 
-	if err := s.cache.Set(ctx, slot); err != nil {
+	if err := s.cache.Set(ctx, slot, s.options.RedisPrefix, s.options.CacheTTL); err != nil {
 		slog.Error("Redis error", "error", err, "service", logger.ServiceNotification)
 	}
 
@@ -107,7 +135,7 @@ func (s *notificationService) NotifyNewSubscription(ctx context.Context, sub sub
 func (s *notificationService) findSlotsBySubscriptionInfo(ctx context.Context, sub subscription.RequestSubscription) ([]polling.Slot, error) {
 	slog.Info("sub", "sub", sub)
 	items := make([]polling.Slot, 0)
-	cacheSlots, errChan := s.cache.ListSlots(ctx)
+	cacheSlots, errChan := s.cache.ListSlots(ctx, s.options.RedisPrefix)
 	prefTimes := subscription.LessonsToTimeRanges(sub.Lessons...)
 	for cacheSlots != nil || errChan != nil {
 		select {

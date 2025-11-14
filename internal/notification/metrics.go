@@ -12,7 +12,7 @@ var (
 		Help: "Number of notifications sent",
 	})
 
-	uniqueSlotsMetrics = promauto.NewCounterVec(prometheus.CounterOpts{
+	uniqueSlotsMetrics = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "notifications_unique_slots",
 		Help: "Slot count by type",
 	}, []string{"type"})
@@ -26,9 +26,9 @@ func recordSlot(slotType polling.LabType) {
 	var enType string
 	switch slotType {
 	case polling.LabTypePerformance:
-		enType = "performance"
+		enType = "Performance"
 	case polling.LabTypeDefence:
-		enType = "defence"
+		enType = "Defence"
 	}
 	uniqueSlotsMetrics.WithLabelValues(enType).Inc()
 }

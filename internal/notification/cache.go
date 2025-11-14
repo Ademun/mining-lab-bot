@@ -18,29 +18,25 @@ var (
 )
 
 type SlotCache struct {
-	client    *redis.Client
-	keyPrefix string
-	ttl       time.Duration
+	client *redis.Client
 }
 
-func NewSlotCache(client *redis.Client, keyPrefix string, ttl time.Duration) *SlotCache {
+func NewSlotCache(client *redis.Client) *SlotCache {
 	return &SlotCache{
-		client:    client,
-		keyPrefix: keyPrefix,
-		ttl:       ttl,
+		client: client,
 	}
 }
 
-func (c *SlotCache) Set(ctx context.Context, slot polling.Slot) error {
+func (c *SlotCache) Set(ctx context.Context, slot polling.Slot, key string, ttl time.Duration) error {
 	data, err := json.Marshal(slot)
 	if err != nil {
 		return ErrMarshal
 	}
-	return c.client.Set(ctx, c.makeKey(slot.Key()), data, c.ttl).Err()
+	return c.client.Set(ctx, key, data, ttl).Err()
 }
 
 func (c *SlotCache) Get(ctx context.Context, key string) (*polling.Slot, error) {
-	data, err := c.client.Get(ctx, c.makeKey(key)).Result()
+	data, err := c.client.Get(ctx, key).Result()
 	if errors.Is(err, redis.Nil) {
 		return nil, ErrNotFound
 	}
@@ -55,7 +51,7 @@ func (c *SlotCache) Get(ctx context.Context, key string) (*polling.Slot, error) 
 }
 
 func (c *SlotCache) Exists(ctx context.Context, key string) (bool, error) {
-	_, err := c.client.Get(ctx, c.makeKey(key)).Result()
+	_, err := c.client.Get(ctx, key).Result()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
 			return false, nil
@@ -65,7 +61,27 @@ func (c *SlotCache) Exists(ctx context.Context, key string) (bool, error) {
 	return true, nil
 }
 
-func (c *SlotCache) ListSlots(ctx context.Context) (chan polling.Slot, chan error) {
+func (c *SlotCache) DeleteAll(ctx context.Context, prefix string) error {
+	var cursor uint64
+	for {
+		keys, nextCursor, err := c.client.Scan(ctx, cursor, prefix+"*", 20).Result()
+		if err != nil {
+			return err
+		}
+		if len(keys) == 0 {
+			return nil
+		}
+		if err := c.client.Del(ctx, keys...).Err(); err != nil {
+			return err
+		}
+		if nextCursor == 0 {
+			return nil
+		}
+		cursor = nextCursor
+	}
+}
+
+func (c *SlotCache) ListSlots(ctx context.Context, key string) (chan polling.Slot, chan error) {
 	slots := make(chan polling.Slot)
 	errChan := make(chan error)
 	eg, errCtx := errgroup.WithContext(ctx)
@@ -77,7 +93,7 @@ func (c *SlotCache) ListSlots(ctx context.Context) (chan polling.Slot, chan erro
 				case <-errCtx.Done():
 					return errCtx.Err()
 				default:
-					keys, nextCursor, err := c.client.Scan(ctx, cursor, c.keyPrefix+"*", 20).Result()
+					keys, nextCursor, err := c.client.Scan(ctx, cursor, key+"*", 20).Result()
 					if err != nil {
 						return err
 					}
@@ -116,6 +132,6 @@ func (c *SlotCache) ListSlots(ctx context.Context) (chan polling.Slot, chan erro
 	return slots, errChan
 }
 
-func (c *SlotCache) makeKey(key string) string {
-	return c.keyPrefix + key
+func (c *SlotCache) makeKey(prefix string, slot polling.Slot) string {
+	return prefix + slot.Key()
 }
