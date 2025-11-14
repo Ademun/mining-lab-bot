@@ -59,6 +59,11 @@ func main() {
 
 	notificationService := notification.New(subscriptionService, bot, cache, &cfg.NotificationConfig)
 
+	if err := notificationService.Start(ctx); err != nil {
+		slog.Error("Fatal error", "error", err)
+		return
+	}
+
 	bot.SetNotificationService(notificationService)
 	bot.Start(ctx)
 
@@ -77,6 +82,7 @@ func main() {
 	defer shutdownCancel()
 
 	pollingService.Stop(ctx)
+	notificationService.Stop(ctx)
 
 	if err := db.Close(); err != nil {
 		slog.Error("Fatal error", "error", err)

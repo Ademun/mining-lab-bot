@@ -16,6 +16,8 @@ import (
 )
 
 type Service interface {
+	Start(ctx context.Context) error
+	Stop(ctx context.Context)
 	SendNotification(ctx context.Context, slot polling.Slot)
 	NotifyNewSubscription(ctx context.Context, sub subscription.RequestSubscription)
 }
