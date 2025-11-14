@@ -55,5 +55,5 @@ jobs:
       - name: Update container
         run: |
           cd /home/ademun/mining-bot
-          docker-compose pull app
-          docker-compose up -d app
+          docker compose pull app
+          docker compose up -d app
