@@ -20,4 +20,4 @@ notification:
   cache_ttl: 5m
   notification_rate: 25.0
 teacher:
-  staring_week: 2
+  starting_week: 1
