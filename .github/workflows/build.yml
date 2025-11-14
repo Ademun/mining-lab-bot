@@ -8,7 +8,7 @@ on:
       - 'v*'
 
 jobs:
-  docker:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -44,3 +44,16 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build
+    runs-on: self-hosted
+    steps:
+      - name: Pull latest image
+        run: docker pull ${{ secrets.DOCKERHUB_USERNAME }}/mining-bot:latest
+
+      - name: Update container
+        run: |
+          cd /home/ademun/mining-bot
+          docker-compose pull app
+          docker-compose up -d app
