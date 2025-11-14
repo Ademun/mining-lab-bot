@@ -43,7 +43,8 @@ func (s *notificationService) SendNotification(ctx context.Context, slot polling
 	}
 
 	if exists {
-		if err := s.cache.Refresh(ctx, slot.Key()); err != nil {
+		// Since the slot can have different available times, we should update the old one
+		if err := s.cache.Set(ctx, slot); err != nil {
 			slog.Error("Redis error", "error", err, "service", logger.ServiceNotification)
 		}
 		return

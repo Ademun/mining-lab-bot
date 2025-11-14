@@ -65,14 +65,6 @@ func (c *SlotCache) Exists(ctx context.Context, key string) (bool, error) {
 	return true, nil
 }
 
-func (c *SlotCache) Refresh(ctx context.Context, key string) error {
-	_, err := c.client.Expire(ctx, c.makeKey(key), c.ttl).Result()
-	if err != nil {
-		return err
-	}
-	return err
-}
-
 func (c *SlotCache) ListSlots(ctx context.Context) (chan polling.Slot, chan error) {
 	slots := make(chan polling.Slot)
 	errChan := make(chan error)
