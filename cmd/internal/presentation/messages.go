@@ -212,13 +212,13 @@ func NotifyMsg(notif *notification.Notification) string {
 	var sb strings.Builder
 	sb.WriteString("<b>🔥 Появилась запись!</b>")
 	sb.WriteString(repeatLineBreaks(3))
+	sb.WriteString(fmt.Sprintf("<b>⚛️ %s</b>", slot.Domain))
+	sb.WriteString(repeatLineBreaks(2))
 	longName := slot.Name
 	if slot.Order != nil {
 		longName += fmt.Sprintf(" (%d-ое место)", *slot.Order)
 	}
 	sb.WriteString(fmt.Sprintf("<b>📚 Лаба №%d. %s</b>", slot.Number, longName))
-	sb.WriteString(repeatLineBreaks(2))
-	sb.WriteString(fmt.Sprintf("<b>⚛️ %s</b>", slot.Domain))
 	sb.WriteString(repeatLineBreaks(2))
 	sb.WriteString(fmt.Sprintf("<b>🚪 Аудитория №%d</b>", slot.Auditorium))
 	sb.WriteString(repeatLineBreaks(2))

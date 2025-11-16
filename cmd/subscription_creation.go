@@ -446,6 +446,10 @@ func handleCancellation(ctx context.Context, b *telegramBot, update *models.Upda
 		return false
 	}
 
+	b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
+		CallbackQueryID: update.CallbackQuery.ID,
+	})
+
 	b.TryTransition(ctx, userID, fsm.StepIdle, nil)
 	b.SendMessage(ctx, &bot.SendMessageParams{
 		ChatID:    userID,
