@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/Ademun/mining-lab-bot/cmd/fsm"
+	"github.com/Ademun/mining-lab-bot/cmd/internal/middleware"
 	"github.com/Ademun/mining-lab-bot/cmd/internal/presentation"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
@@ -40,4 +41,21 @@ func (b *telegramBot) handleFeedbackMsgText(ctx context.Context, api *bot.Bot, u
 		Text:      presentation.FeedbackReplyMsg(),
 		ParseMode: models.ParseModeHTML,
 	})
+}
+
+func (b *telegramBot) handleFeedbackReaction(ctx context.Context, api *bot.Bot, update *models.Update, data fsm.StateData) {
+	if update.MessageReaction == nil {
+		return
+	}
+	userID := update.MessageReaction.MessageID
+
+	b.TryTransition(ctx, int64(userID), fsm.StepIdle, &fsm.IdleData{})
+	for _, reaction := range update.MessageReaction.NewReaction {
+		if reaction.ReactionTypeEmoji == nil {
+			continue
+		}
+		if reaction.ReactionTypeEmoji.Emoji == "👍" {
+			middleware.RecordNotification()
+		}
+	}
 }

@@ -41,6 +41,7 @@ func NewBot(subService subscription.Service, opts *config.TelegramConfig, redis 
 	botOpts := []bot.Option{
 		bot.WithMiddlewares(middleware.CommandLoggingMiddleware, router.Middleware),
 		bot.WithDefaultHandler(handleDefault),
+		bot.WithAllowedUpdates([]string{"message", "message_reaction", "callback_query"}),
 	}
 	b, err := bot.New(opts.BotToken, botOpts...)
 	if err != nil {
@@ -77,6 +78,7 @@ func (b *telegramBot) Start(ctx context.Context) {
 	b.router.RegisterHandler(fsm.StepAwaitingSubCreationConfirmation, b.handleSubCreationConfirmation)
 	b.router.RegisterHandler(fsm.StepAwaitingListingSubsAction, b.handleListingSubsAction)
 	b.router.RegisterHandler(fsm.StepAwaitingFeedbackMsg, b.handleFeedbackMsgText)
+	b.router.RegisterHandler(fsm.StepAwaitingFeedbackReaction, b.handleFeedbackReaction)
 	go b.api.Start(ctx)
 }
 

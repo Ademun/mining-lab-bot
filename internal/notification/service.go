@@ -60,9 +60,14 @@ func (s *notificationService) Start(ctx context.Context) error {
 }
 
 func (s *notificationService) Stop(ctx context.Context) {
-	<-ctx.Done()
-	s.cronScheduler.Stop()
-	slog.Info("Stopped", "service", logger.ServiceNotification)
+	cronCtx := s.cronScheduler.Stop()
+	select {
+	case <-cronCtx.Done():
+		slog.Info("Stopped", "service", logger.ServiceNotification)
+		return
+	case <-ctx.Done():
+		slog.Info("Stopped from timeout", "service", logger.ServiceNotification)
+	}
 }
 
 func (s *notificationService) SendNotification(ctx context.Context, slot polling.Slot) {
@@ -70,6 +75,7 @@ func (s *notificationService) SendNotification(ctx context.Context, slot polling
 	exists, err := s.cache.Exists(ctx, s.options.RedisPrefix+slot.Key())
 	if err != nil {
 		slog.Error("Redis error", "error", err, "service", logger.ServiceNotification)
+		return
 	}
 
 	if exists {
@@ -84,11 +90,13 @@ func (s *notificationService) SendNotification(ctx context.Context, slot polling
 
 	if err := s.cache.Set(ctx, slot, s.options.RedisPrefix+slot.Key(), s.options.CacheTTL); err != nil {
 		slog.Error("Redis error", "error", err, "service", logger.ServiceNotification)
+		return
 	}
 
 	users, err := s.subService.FindUsersBySlotInfo(ctx, slot)
 	if err != nil {
 		slog.Error("Failed to find users", "slot", slot, "err", err, "service", logger.ServiceNotification)
+		return
 	}
 
 	for _, user := range users {
@@ -114,6 +122,7 @@ func (s *notificationService) NotifyNewSubscription(ctx context.Context, sub sub
 	slots, err := s.findSlotsBySubscriptionInfo(ctx, sub)
 	if err != nil {
 		slog.Error("Failed to find slots for subscription", "error", err, "service", logger.ServiceNotification)
+		return
 	}
 
 	prefTimes := subscription.GetSubscriptionPreferredTimes(sub)

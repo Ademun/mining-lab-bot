@@ -46,6 +46,8 @@ func (r *Router) Middleware(next bot.HandlerFunc) bot.HandlerFunc {
 			}
 		} else if update.CallbackQuery != nil {
 			userID = update.CallbackQuery.From.ID
+		} else if update.MessageReaction != nil {
+			userID = update.MessageReaction.User.ID
 		} else {
 			return
 		}
