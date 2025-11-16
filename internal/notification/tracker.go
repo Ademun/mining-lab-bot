@@ -20,7 +20,7 @@ func (s *notificationService) trackSlot(ctx context.Context, slot polling.Slot) 
 		return
 	}
 
-	if err = s.cache.Set(ctx, slot, key, s.options.CacheTTL); err != nil {
+	if err = s.cache.Set(ctx, slot, key, 0); err != nil {
 		slog.Error("Redis error", "error", err, "service", logger.ServiceNotification)
 	}
 	s.mu.Lock()
