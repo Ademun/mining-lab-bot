@@ -250,7 +250,8 @@ func NotifyMsg(notif *notification.Notification) string {
 			lessonTime := utils.TimeStartToShortLessonTime[timeStart]
 			stringParts = append(stringParts, lessonTime)
 			if teachers, ok := slot.TimesTeachers[t]; ok {
-				stringParts = append(stringParts, teachers...)
+				teachersStr := strings.Join(teachers, ", ")
+				stringParts = append(stringParts, teachersStr)
 			}
 			if utils.IsTimeInPreferredTimes(t, &notif.PreferredTimes) {
 				stringParts = append(stringParts, "⭐️ Ваше время")
