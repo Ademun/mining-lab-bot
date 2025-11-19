@@ -16,6 +16,7 @@ require (
 	github.com/redis/go-redis/v9 v9.16.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/stretchr/testify v1.11.1
+	go.uber.org/mock v0.6.0
 	golang.org/x/sync v0.17.0
 	golang.org/x/time v0.14.0
 	gopkg.in/yaml.v3 v3.0.1

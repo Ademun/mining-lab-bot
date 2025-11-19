@@ -7,4 +7,5 @@ type Teacher struct {
 	Weekday    int    `db:"weekday"`
 	TimeStart  string `db:"time_start"`
 	TimeEnd    string `db:"time_end"`
+	Difficulty int    `db:"difficulty"`
 }

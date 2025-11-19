@@ -56,20 +56,18 @@ func (s *teacherService) Stop(ctx context.Context) {
 }
 
 func (s *teacherService) FindTeachersForTime(ctx context.Context, targetTime time.Time, auditorium int) []Teacher {
-	teachers, err := s.teacherRepo.FindByWeekNumberWeekdayAuditorium(ctx, calculateWeekNumber(s.weekNumber, time.Now(), targetTime), targetTime.Weekday(), auditorium)
+	filter := Filter{
+		WeekNumber: calculateWeekNumber(s.weekNumber, time.Now(), targetTime),
+		Weekday:    targetTime.Weekday(),
+		Auditorium: auditorium,
+		TargetTime: targetTime,
+	}
+	teachers, err := s.teacherRepo.FindBySchedule(ctx, filter)
 	if err != nil {
 		slog.Error("Failed to find teachers", "error", err, "service", logger.ServiceTeacher)
 	}
 
-	res := make([]Teacher, 0)
-	for _, teacher := range teachers {
-		normalized := targetTime.Format("15:01")
-		if (teacher.TimeStart <= normalized) && (normalized <= teacher.TimeEnd) {
-			res = append(res, teacher)
-		}
-	}
-
-	return res
+	return teachers
 }
 
 func calculateWeekNumber(currentWeek int, currentTime, targetTime time.Time) int {

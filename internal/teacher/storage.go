@@ -2,15 +2,14 @@ package teacher
 
 import (
 	"context"
-	"fmt"
-	"time"
 
 	"github.com/Ademun/mining-lab-bot/pkg/errs"
 	"github.com/jmoiron/sqlx"
 )
 
+//go:generate mockgen -source=storage.go -destination=mocks/mock_storage.go -package=mocks
 type Repo interface {
-	FindByWeekNumberWeekdayAuditorium(ctx context.Context, weekNumber int, weekday time.Weekday, auditorium int) ([]Teacher, error)
+	FindBySchedule(ctx context.Context, filter Filter) ([]Teacher, error)
 }
 
 type teacherRepo struct {
@@ -21,16 +20,14 @@ func NewRepo(db *sqlx.DB) Repo {
 	return &teacherRepo{db: db}
 }
 
-func (t *teacherRepo) FindByWeekNumberWeekdayAuditorium(ctx context.Context, weekNumber int, weekday time.Weekday, auditorium int) ([]Teacher, error) {
-	fmt.Println(weekNumber, weekday, auditorium)
-	query := `select name, auditorium, week_number, weekday, time_start, time_end from teachers where week_number = :week_number and weekday = :weekday and auditorium = :auditorium`
-	var teachers []Teacher
-	err := t.db.SelectContext(ctx, &teachers, query, weekNumber, weekday, auditorium)
+func (t *teacherRepo) FindBySchedule(ctx context.Context, filter Filter) ([]Teacher, error) {
+	query, args, err := filter.buildQuery()
 	if err != nil {
-		return nil, &errs.ErrQueryExecution{Operation: "FindByWeekNumberWeekdayAuditorium", Query: query, Err: err}
+		return nil, &errs.ErrQueryExecution{Operation: "FindBySchedule", Query: query, Err: err}
 	}
-	for _, teacher := range teachers {
-		fmt.Println(teacher.Name)
+	var teachers []Teacher
+	if err := t.db.SelectContext(ctx, &teachers, query, args...); err != nil {
+		return nil, &errs.ErrQueryExecution{Operation: "FindBySchedule", Query: query, Err: err}
 	}
 	return teachers, nil
 }
