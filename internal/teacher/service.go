@@ -61,14 +61,10 @@ func (s *teacherService) FindTeachersForTime(ctx context.Context, targetTime tim
 		slog.Error("Failed to find teachers", "error", err, "service", logger.ServiceTeacher)
 	}
 
-	normalized := timeToMinutes(targetTime.Hour(), targetTime.Minute())
 	res := make([]Teacher, 0)
 	for _, teacher := range teachers {
-		start, _ := time.Parse("15:04", teacher.TimeStart)
-		startMins := timeToMinutes(start.Hour(), start.Minute())
-		end, _ := time.Parse("15:04", teacher.TimeEnd)
-		endMins := timeToMinutes(end.Hour(), end.Minute())
-		if normalized >= startMins && normalized < endMins {
+		normalized := targetTime.Format("15:01")
+		if (teacher.TimeStart <= normalized) && (normalized <= teacher.TimeEnd) {
 			res = append(res, teacher)
 		}
 	}
@@ -102,8 +98,4 @@ func getWeekMonday(t time.Time) time.Time {
 	monday := t.AddDate(0, 0, -daysToSubtract)
 
 	return time.Date(monday.Year(), monday.Month(), monday.Day(), 0, 0, 0, 0, monday.Location())
-}
-
-func timeToMinutes(h, m int) int {
-	return h*60 + m
 }
