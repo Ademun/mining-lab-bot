@@ -56,44 +56,37 @@ func (s *teacherService) Stop(ctx context.Context) {
 }
 
 func (s *teacherService) FindTeachersForTime(ctx context.Context, targetTime time.Time, auditorium int) []Teacher {
-	teachers, err := s.teacherRepo.FindByWeekNumberWeekdayAuditorium(ctx, s.calculateWeekNumber(targetTime), targetTime.Weekday(), auditorium)
+	filter := Filter{
+		WeekNumber: calculateWeekNumber(s.weekNumber, time.Now(), targetTime),
+		Weekday:    targetTime.Weekday(),
+		Auditorium: auditorium,
+		TargetTime: targetTime,
+	}
+	teachers, err := s.teacherRepo.FindBySchedule(ctx, filter)
 	if err != nil {
 		slog.Error("Failed to find teachers", "error", err, "service", logger.ServiceTeacher)
 	}
 
-	normalized := timeToMinutes(targetTime.Hour(), targetTime.Minute())
-	res := make([]Teacher, 0)
-	for _, teacher := range teachers {
-		start, _ := time.Parse("15:04", teacher.TimeStart)
-		startMins := timeToMinutes(start.Hour(), start.Minute())
-		end, _ := time.Parse("15:04", teacher.TimeEnd)
-		endMins := timeToMinutes(end.Hour(), end.Minute())
-		if normalized >= startMins && normalized < endMins {
-			res = append(res, teacher)
-		}
-	}
-
-	return res
+	return teachers
 }
 
-func (s *teacherService) calculateWeekNumber(targetTime time.Time) int {
-	now := time.Now()
-	currentWeekStart := getMonday(now)
-	targetWeekStart := getMonday(targetTime)
+func calculateWeekNumber(currentWeek int, currentTime, targetTime time.Time) int {
+	currentWeekStart := getWeekMonday(currentTime)
+	targetWeekStart := getWeekMonday(targetTime)
 
 	weekDiff := int(targetWeekStart.Sub(currentWeekStart).Hours() / (24 * 7))
 
 	if weekDiff%2 == 0 {
-		return s.weekNumber
+		return currentWeek
 	}
 
-	if s.weekNumber == 1 {
+	if currentWeek == 1 {
 		return 2
 	}
 	return 1
 }
 
-func getMonday(t time.Time) time.Time {
+func getWeekMonday(t time.Time) time.Time {
 	weekday := int(t.Weekday())
 	if weekday == 0 {
 		weekday = 7
@@ -103,8 +96,4 @@ func getMonday(t time.Time) time.Time {
 	monday := t.AddDate(0, 0, -daysToSubtract)
 
 	return time.Date(monday.Year(), monday.Month(), monday.Day(), 0, 0, 0, 0, monday.Location())
-}
-
-func timeToMinutes(h, m int) int {
-	return h*60 + m
 }
