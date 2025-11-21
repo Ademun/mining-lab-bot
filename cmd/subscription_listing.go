@@ -3,15 +3,12 @@ package cmd
 import (
 	"context"
 	"log/slog"
-	"strconv"
-	"strings"
 
 	"github.com/Ademun/mining-lab-bot/cmd/fsm"
 	"github.com/Ademun/mining-lab-bot/cmd/internal/presentation"
 	"github.com/Ademun/mining-lab-bot/pkg/logger"
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
-	"github.com/google/uuid"
 )
 
 // /unsub and /list commands
@@ -146,30 +143,4 @@ func (b *telegramBot) handleListingSubsAction(ctx context.Context, api *bot.Bot,
 		})
 	}
 	b.TryTransition(ctx, userID, fsm.StepAwaitingListingSubsAction, newData)
-}
-
-// extractListingData returns new sub index if the selected action was "move:idx", and sub uuid if it was "delete"
-func extractListingData(update *models.Update) (*int, *uuid.UUID) {
-	dataFields := strings.Split(update.CallbackQuery.Data, ":")[1:]
-	switch dataFields[0] {
-	case "move":
-		newIndex, err := strconv.Atoi(dataFields[1])
-		if err != nil {
-			slog.Error("Failed to parse new sub index",
-				"index", dataFields[1],
-				"error", err,
-				"service", logger.TelegramBot)
-		}
-		return &newIndex, nil
-	case "delete":
-		subUUID, err := uuid.Parse(dataFields[1])
-		if err != nil {
-			slog.Error("Failed to parse sub uuid",
-				"uuid", dataFields[1],
-				"error", err,
-				"service", logger.TelegramBot)
-		}
-		return nil, &subUUID
-	}
-	return nil, nil
 }

@@ -24,6 +24,10 @@ func HelpCmdMsg() string {
 	sb.WriteString("<b>/unsub - удалить подписку</b>")
 	sb.WriteString(repeatLineBreaks(2))
 	sb.WriteString("<b>/list - посмотреть подписки</b>")
+	sb.WriteString(repeatLineBreaks(3))
+	sb.WriteString("<b>👨‍🏫 Информация:</b>")
+	sb.WriteString(repeatLineBreaks(2))
+	sb.WriteString("<b>/teacher - сообщить о том, какой преподаватель был на вашей лабе</b>")
 	return sb.String()
 }
 
@@ -203,6 +207,68 @@ func SubViewMsg(sub *subscription.ResponseSubscription) string {
 
 func UnsubSuccessMsg() string {
 	return "<b>✅ Вы больше не подписаны на эту лабу</b>"
+}
+
+// ==
+
+// Teacher report flow
+
+func AskWeekParityMsg() string {
+	return "<b>📅 Выберите неделю</b>"
+}
+
+func AskTeacherWeekdayMsg() string {
+	return "<b>📅 Выберите день недели</b>"
+}
+
+func AskTeacherLessonMsg() string {
+	return "<b>🕐 Выберите пару</b>"
+}
+
+func AskTeacherSurnameMsg() string {
+	var sb strings.Builder
+	sb.WriteString("<b>👨‍🏫 Введите фамилию преподавателя</b>")
+	sb.WriteString(repeatLineBreaks(2))
+	sb.WriteString("Например: Иванов")
+	return sb.String()
+}
+
+func TeacherReportCancelledMsg() string {
+	return "<b>❌ Отправка информации отменена</b>"
+}
+
+func TeacherReportSuccessMsg() string {
+	var sb strings.Builder
+	sb.WriteString("<b>✅ Информация отправлена!</b>")
+	sb.WriteString(repeatLineBreaks(2))
+	sb.WriteString("<b>Спасибо за помощь в улучшении базы данных</b>")
+	return sb.String()
+}
+
+func TeacherReportAdminMsg(userID int64, auditorium int, weekParity string, weekday int, lessonNum int, surname string) string {
+	var sb strings.Builder
+	sb.WriteString("<b>👨‍🏫 Информация о преподавателе</b>")
+	sb.WriteString(repeatLineBreaks(2))
+	sb.WriteString(fmt.Sprintf("<b>От пользователя:</b> %d", userID))
+	sb.WriteString(repeatLineBreaks(2))
+	sb.WriteString(fmt.Sprintf("<b>🚪 Аудитория:</b> %d", auditorium))
+	sb.WriteString(repeatLineBreaks(2))
+
+	weekParityRu := "Чётная"
+	if weekParity == "odd" {
+		weekParityRu = "Нечётная"
+	}
+
+	sb.WriteString(fmt.Sprintf("<b>📅 Неделя:</b> %s", weekParityRu))
+	sb.WriteString(repeatLineBreaks(2))
+	sb.WriteString(fmt.Sprintf("<b>📅 День:</b> %s", utils.WeekdayLocale[weekday]))
+	sb.WriteString(repeatLineBreaks(2))
+
+	sb.WriteString(fmt.Sprintf("<b>🕐 Пара:</b> %s", utils.DefaultLessons[lessonNum-1].Text))
+	sb.WriteString(repeatLineBreaks(2))
+	sb.WriteString(fmt.Sprintf("<b>👨‍🏫 Преподаватель:</b> %s", surname))
+
+	return sb.String()
 }
 
 // ==

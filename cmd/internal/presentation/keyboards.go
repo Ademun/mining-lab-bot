@@ -8,44 +8,43 @@ import (
 	"github.com/google/uuid"
 )
 
-func SelectLabTypeKbd() *models.InlineKeyboardMarkup {
+// Универсальные клавиатуры
+
+func CancelKbd() *models.InlineKeyboardMarkup {
 	return &models.InlineKeyboardMarkup{
 		InlineKeyboard: [][]models.InlineKeyboardButton{
-			{{Text: "Выполнение", CallbackData: "sub_creation:type:performance"}},
-			{{Text: "Защита", CallbackData: "sub_creation:type:defence"}},
-			{{Text: "❌ Отменить создание", CallbackData: "sub_creation:cancel"}},
+			{{Text: "❌ Отменить", CallbackData: "cancel"}},
 		},
 	}
 }
 
-func SelectLabDomainKbd() *models.InlineKeyboardMarkup {
-	return &models.InlineKeyboardMarkup{
+func SelectWeekdayKbd(withSkip bool) *models.InlineKeyboardMarkup {
+	keyboard := &models.InlineKeyboardMarkup{
 		InlineKeyboard: [][]models.InlineKeyboardButton{
-			{{Text: "Механика", CallbackData: "sub_creation:domain:mechanics"}},
-			{{Text: "Виртуалка", CallbackData: "sub_creation:domain:virtual"}},
-			{{Text: "Электричество", CallbackData: "sub_creation:domain:electricity"}},
-			{{Text: "❌ Отменить создание", CallbackData: "sub_creation:cancel"}},
+			{{Text: "Понедельник", CallbackData: "weekday:1"}},
+			{{Text: "Вторник", CallbackData: "weekday:2"}},
+			{{Text: "Среда", CallbackData: "weekday:3"}},
+			{{Text: "Четверг", CallbackData: "weekday:4"}},
+			{{Text: "Пятница", CallbackData: "weekday:5"}},
+			{{Text: "Суббота", CallbackData: "weekday:6"}},
+			{{Text: "Воскресенье", CallbackData: "weekday:0"}},
 		},
 	}
-}
 
-func SelectWeekdayKbd() *models.InlineKeyboardMarkup {
-	return &models.InlineKeyboardMarkup{
-		InlineKeyboard: [][]models.InlineKeyboardButton{
-			{{Text: "Понедельник", CallbackData: "sub_creation:weekday:1"}},
-			{{Text: "Вторник", CallbackData: "sub_creation:weekday:2"}},
-			{{Text: "Среда", CallbackData: "sub_creation:weekday:3"}},
-			{{Text: "Четверг", CallbackData: "sub_creation:weekday:4"}},
-			{{Text: "Пятница", CallbackData: "sub_creation:weekday:5"}},
-			{{Text: "Суббота", CallbackData: "sub_creation:weekday:6"}},
-			{{Text: "Воскресенье", CallbackData: "sub_creation:weekday:0"}},
-			{{Text: "⏭️ Пропустить", CallbackData: "sub_creation:weekday:skip"}},
-			{{Text: "❌ Отменить создание", CallbackData: "sub_creation:cancel"}},
-		},
+	if withSkip {
+		keyboard.InlineKeyboard = append(keyboard.InlineKeyboard, []models.InlineKeyboardButton{
+			{Text: "⏭️ Пропустить", CallbackData: "weekday:skip"},
+		})
 	}
+
+	keyboard.InlineKeyboard = append(keyboard.InlineKeyboard, []models.InlineKeyboardButton{
+		{Text: "❌ Отменить", CallbackData: "cancel"},
+	})
+
+	return keyboard
 }
 
-func SelectLessonKbd(lessons []utils.Lesson) *models.InlineKeyboardMarkup {
+func SelectLessonKbd(lessons []utils.Lesson, multi bool) *models.InlineKeyboardMarkup {
 	keyboard := &models.InlineKeyboardMarkup{
 		InlineKeyboard: make([][]models.InlineKeyboardButton, len(lessons)),
 	}
@@ -55,32 +54,54 @@ func SelectLessonKbd(lessons []utils.Lesson) *models.InlineKeyboardMarkup {
 		}
 	}
 
+	if multi {
+		keyboard.InlineKeyboard = append(keyboard.InlineKeyboard, [][]models.InlineKeyboardButton{
+			{{Text: "✅ Готово", CallbackData: "lesson:skip"}},
+		}...)
+	}
+
 	keyboard.InlineKeyboard = append(keyboard.InlineKeyboard, [][]models.InlineKeyboardButton{
-		{{Text: "✅ Готово", CallbackData: "sub_creation:lesson:skip"}},
-		{{Text: "❌ Отменить создание", CallbackData: "sub_creation:cancel"}},
+		{{Text: "❌ Отменить", CallbackData: "cancel"}},
 	}...)
 
 	return keyboard
+}
+
+// Subscription creation keyboards
+
+func SelectLabTypeKbd() *models.InlineKeyboardMarkup {
+	return &models.InlineKeyboardMarkup{
+		InlineKeyboard: [][]models.InlineKeyboardButton{
+			{{Text: "Выполнение", CallbackData: "type:performance"}},
+			{{Text: "Защита", CallbackData: "type:defence"}},
+			{{Text: "❌ Отменить создание", CallbackData: "cancel"}},
+		},
+	}
+}
+
+func SelectLabDomainKbd() *models.InlineKeyboardMarkup {
+	return &models.InlineKeyboardMarkup{
+		InlineKeyboard: [][]models.InlineKeyboardButton{
+			{{Text: "Механика", CallbackData: "domain:mechanics"}},
+			{{Text: "Виртуалка", CallbackData: "domain:virtual"}},
+			{{Text: "Электричество", CallbackData: "domain:electricity"}},
+			{{Text: "❌ Отменить создание", CallbackData: "cancel"}},
+		},
+	}
 }
 
 func AskSubCreationConfirmationKbd() *models.InlineKeyboardMarkup {
 	return &models.InlineKeyboardMarkup{
 		InlineKeyboard: [][]models.InlineKeyboardButton{
 			{
-				{Text: "✅ Создать", CallbackData: "sub_creation:confirm:create"},
-				{Text: "❌ Отменить", CallbackData: "sub_creation:cancel"},
+				{Text: "✅ Создать", CallbackData: "confirm:create"},
+				{Text: "❌ Отменить", CallbackData: "cancel"},
 			},
 		},
 	}
 }
 
-func SubCreationCancelKbd() *models.InlineKeyboardMarkup {
-	return &models.InlineKeyboardMarkup{
-		InlineKeyboard: [][]models.InlineKeyboardButton{
-			{{Text: "❌ Отменить создание", CallbackData: "sub_creation:cancel"}},
-		},
-	}
-}
+// Subscription listing keyboards
 
 func ListSubsKbd(subUUID uuid.UUID, subIdx, totalSubs int) *models.InlineKeyboardMarkup {
 	keyboard := &models.InlineKeyboardMarkup{
@@ -89,21 +110,21 @@ func ListSubsKbd(subUUID uuid.UUID, subIdx, totalSubs int) *models.InlineKeyboar
 	paginationRow := make([]models.InlineKeyboardButton, 0)
 	if subIdx > 0 {
 		paginationRow = append(paginationRow, models.InlineKeyboardButton{
-			Text: "<<", CallbackData: fmt.Sprintf("sub_list:move:%d", subIdx-1),
+			Text: "<<", CallbackData: fmt.Sprintf("move:%d", subIdx-1),
 		})
 	}
 	paginationRow = append(paginationRow, models.InlineKeyboardButton{
-		Text: fmt.Sprintf("%d/%d", subIdx+1, totalSubs), CallbackData: fmt.Sprintf("sub_list:move:%d", subIdx),
+		Text: fmt.Sprintf("%d/%d", subIdx+1, totalSubs), CallbackData: fmt.Sprintf("move:%d", subIdx),
 	})
 	if subIdx < totalSubs-1 {
 		paginationRow = append(paginationRow, models.InlineKeyboardButton{
-			Text: ">>", CallbackData: fmt.Sprintf("sub_list:move:%d", subIdx+1),
+			Text: ">>", CallbackData: fmt.Sprintf("move:%d", subIdx+1),
 		})
 	}
 	keyboard.InlineKeyboard = append(keyboard.InlineKeyboard, paginationRow)
 	keyboard.InlineKeyboard = append(keyboard.InlineKeyboard, []models.InlineKeyboardButton{
 		{
-			Text: "🗑️ Удалить", CallbackData: fmt.Sprintf("sub_list:delete:%s", subUUID.String()),
+			Text: "🗑️ Удалить", CallbackData: fmt.Sprintf("delete:%s", subUUID.String()),
 		},
 	})
 	return keyboard
@@ -115,6 +136,18 @@ func LinkKbd(url string) *models.InlineKeyboardMarkup {
 			{
 				{Text: "🔗 ЗАПИСАТЬСЯ", URL: url},
 			},
+		},
+	}
+}
+
+// Teacher report keyboards
+
+func SelectWeekParityKbd() *models.InlineKeyboardMarkup {
+	return &models.InlineKeyboardMarkup{
+		InlineKeyboard: [][]models.InlineKeyboardButton{
+			{{Text: "Чётная", CallbackData: "parity:even"}},
+			{{Text: "Нечётная", CallbackData: "parity:odd"}},
+			{{Text: "❌ Отменить", CallbackData: "cancel"}},
 		},
 	}
 }

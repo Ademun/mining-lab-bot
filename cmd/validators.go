@@ -1,6 +1,10 @@
 package cmd
 
-import "strconv"
+import (
+	"strconv"
+	"strings"
+	"unicode/utf8"
+)
 
 func validateLabNumber(labNumberStr string) (int, string) {
 	labNumber, err := strconv.Atoi(labNumberStr)
@@ -22,4 +26,18 @@ func validateLabAuditorium(labAuditoriumStr string) (int, string) {
 		return 0, "Номер аудитории должен быть в диапазоне 1-1000"
 	}
 	return labAuditorium, ""
+}
+
+func validateTeacherSurname(surname string) (string, string) {
+	surname = strings.TrimSpace(surname)
+
+	if surname == "" {
+		return "", "Фамилия преподавателя не может быть пустой"
+	}
+
+	if utf8.RuneCountInString(surname) > 100 {
+		return "", "Фамилия преподавателя не может быть длиннее 100 символов"
+	}
+
+	return surname, ""
 }

@@ -3,8 +3,6 @@ package cmd
 import (
 	"context"
 	"log/slog"
-	"strconv"
-	"strings"
 
 	"github.com/Ademun/mining-lab-bot/cmd/fsm"
 	"github.com/Ademun/mining-lab-bot/cmd/internal/presentation"
@@ -37,7 +35,7 @@ func (b *telegramBot) handleSubscriptionCreation(ctx context.Context, api *bot.B
 }
 
 func (b *telegramBot) handleLabType(ctx context.Context, api *bot.Bot, update *models.Update, data fsm.StateData) {
-	if handleCancellation(ctx, b, update) {
+	if handleSubCreationCancellation(ctx, b, update) {
 		return
 	}
 	if update.CallbackQuery == nil {
@@ -70,12 +68,12 @@ func (b *telegramBot) handleLabType(ctx context.Context, api *bot.Bot, update *m
 		ChatID:      userID,
 		Text:        presentation.AskLabNumberMsg(),
 		ParseMode:   models.ParseModeHTML,
-		ReplyMarkup: presentation.SubCreationCancelKbd(),
+		ReplyMarkup: presentation.CancelKbd(),
 	})
 }
 
 func (b *telegramBot) handleLabNumber(ctx context.Context, api *bot.Bot, update *models.Update, data fsm.StateData) {
-	if handleCancellation(ctx, b, update) {
+	if handleSubCreationCancellation(ctx, b, update) {
 		return
 	}
 	if update.Message == nil {
@@ -116,7 +114,7 @@ func (b *telegramBot) handleLabNumber(ctx context.Context, api *bot.Bot, update 
 			ChatID:      userID,
 			Text:        presentation.AskLabAuditoriumMsg(),
 			ParseMode:   models.ParseModeHTML,
-			ReplyMarkup: presentation.SubCreationCancelKbd(),
+			ReplyMarkup: presentation.CancelKbd(),
 		})
 	case polling.LabTypeDefence:
 		b.TryTransition(ctx, userID, fsm.StepAwaitingLabDomain, newData)
@@ -130,7 +128,7 @@ func (b *telegramBot) handleLabNumber(ctx context.Context, api *bot.Bot, update 
 }
 
 func (b *telegramBot) handleLabAuditorium(ctx context.Context, api *bot.Bot, update *models.Update, data fsm.StateData) {
-	if handleCancellation(ctx, b, update) {
+	if handleSubCreationCancellation(ctx, b, update) {
 		return
 	}
 	if update.Message == nil {
@@ -168,12 +166,12 @@ func (b *telegramBot) handleLabAuditorium(ctx context.Context, api *bot.Bot, upd
 		ChatID:      userID,
 		Text:        presentation.AskWeekdayMsg(),
 		ParseMode:   models.ParseModeHTML,
-		ReplyMarkup: presentation.SelectWeekdayKbd(),
+		ReplyMarkup: presentation.SelectWeekdayKbd(true),
 	})
 }
 
 func (b *telegramBot) handleLabDomain(ctx context.Context, api *bot.Bot, update *models.Update, data fsm.StateData) {
-	if handleCancellation(ctx, b, update) {
+	if handleSubCreationCancellation(ctx, b, update) {
 		return
 	}
 	if update.CallbackQuery == nil {
@@ -206,12 +204,12 @@ func (b *telegramBot) handleLabDomain(ctx context.Context, api *bot.Bot, update 
 		ChatID:      userID,
 		Text:        presentation.AskWeekdayMsg(),
 		ParseMode:   models.ParseModeHTML,
-		ReplyMarkup: presentation.SelectWeekdayKbd(),
+		ReplyMarkup: presentation.SelectWeekdayKbd(true),
 	})
 }
 
 func (b *telegramBot) handleWeekday(ctx context.Context, api *bot.Bot, update *models.Update, data fsm.StateData) {
-	if handleCancellation(ctx, b, update) {
+	if handleSubCreationCancellation(ctx, b, update) {
 		return
 	}
 	if update.CallbackQuery == nil {
@@ -258,7 +256,7 @@ func (b *telegramBot) handleWeekday(ctx context.Context, api *bot.Bot, update *m
 		ChatID:      userID,
 		Text:        presentation.AskLessonsMsg(nil),
 		ParseMode:   models.ParseModeHTML,
-		ReplyMarkup: presentation.SelectLessonKbd(utils.DefaultLessons),
+		ReplyMarkup: presentation.SelectLessonKbd(utils.DefaultLessons, true),
 	})
 	b.AnswerCallbackQuery(ctx, &bot.AnswerCallbackQueryParams{
 		CallbackQueryID: update.CallbackQuery.ID,
@@ -266,7 +264,7 @@ func (b *telegramBot) handleWeekday(ctx context.Context, api *bot.Bot, update *m
 }
 
 func (b *telegramBot) handleLessons(ctx context.Context, api *bot.Bot, update *models.Update, data fsm.StateData) {
-	if handleCancellation(ctx, b, update) {
+	if handleSubCreationCancellation(ctx, b, update) {
 		return
 	}
 	if update.CallbackQuery == nil {
@@ -331,12 +329,12 @@ func (b *telegramBot) handleLessons(ctx context.Context, api *bot.Bot, update *m
 	b.EditMessageReplyMarkup(ctx, &bot.EditMessageReplyMarkupParams{
 		ChatID:      userID,
 		MessageID:   update.CallbackQuery.Message.Message.ID,
-		ReplyMarkup: presentation.SelectLessonKbd(kbdLessons),
+		ReplyMarkup: presentation.SelectLessonKbd(kbdLessons, true),
 	})
 }
 
 func (b *telegramBot) handleSubCreationConfirmation(ctx context.Context, api *bot.Bot, update *models.Update, data fsm.StateData) {
-	if handleCancellation(ctx, b, update) {
+	if handleSubCreationCancellation(ctx, b, update) {
 		return
 	}
 	if update.CallbackQuery == nil {
@@ -384,65 +382,13 @@ func (b *telegramBot) handleSubCreationConfirmation(ctx context.Context, api *bo
 	return
 }
 
-func extractLabType(update *models.Update) polling.LabType {
-	labTypeStr := update.CallbackQuery.Data
-	labTypeStr = strings.TrimPrefix(labTypeStr, "sub_creation:type:")
-
-	var labType polling.LabType
-	switch labTypeStr {
-	case "performance":
-		labType = polling.LabTypePerformance
-	case "defence":
-		labType = polling.LabTypeDefence
-	}
-	return labType
-}
-
-func extractLabDomain(update *models.Update) *polling.LabDomain {
-	labDomainStr := update.CallbackQuery.Data
-	labDomainStr = strings.TrimPrefix(labDomainStr, "sub_creation:domain:")
-
-	var labDomain polling.LabDomain
-	switch labDomainStr {
-	case "mechanics":
-		labDomain = polling.LabDomainMechanics
-	case "virtual":
-		labDomain = polling.LabDomainVirtual
-	case "electricity":
-		labDomain = polling.LabDomainElectricity
-	}
-	return &labDomain
-}
-
-func extractWeekday(update *models.Update) *int {
-	labWeekdayStr := update.CallbackQuery.Data
-	labWeekdayStr = strings.TrimPrefix(labWeekdayStr, "sub_creation:weekday:")
-
-	if labWeekdayStr == "skip" {
-		return nil
-	}
-	labWeekdayInt, _ := strconv.Atoi(labWeekdayStr)
-	return &labWeekdayInt
-}
-
-func extractLesson(update *models.Update) *int {
-	labLessonStr := update.CallbackQuery.Data
-	labLessonStr = strings.TrimPrefix(labLessonStr, "sub_creation:lesson:")
-
-	if labLessonStr == "skip" {
-		return nil
-	}
-	labLessonInt, _ := strconv.Atoi(labLessonStr)
-	return &labLessonInt
-}
-
-func handleCancellation(ctx context.Context, b *telegramBot, update *models.Update) bool {
+func handleSubCreationCancellation(ctx context.Context, b *telegramBot, update *models.Update) bool {
 	if update.CallbackQuery == nil {
 		return false
 	}
 	userID := update.CallbackQuery.From.ID
 	cancelledStr := update.CallbackQuery.Data
-	if strings.TrimPrefix(cancelledStr, "sub_creation:") != "cancel" {
+	if cancelledStr != "cancel" {
 		return false
 	}
 

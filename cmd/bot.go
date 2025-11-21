@@ -69,6 +69,9 @@ func (b *telegramBot) Start(ctx context.Context) {
 		bot.MatchTypeCommandStartOnly, b.handleListingSubscriptions)
 	b.api.RegisterHandler(bot.HandlerTypeMessageText, "feed",
 		bot.MatchTypeCommandStartOnly, b.handleFeedbackMsg)
+	b.api.RegisterHandler(bot.HandlerTypeMessageText, "teacher",
+		bot.MatchTypeCommandStartOnly, b.handleTeacherReport)
+
 	b.router.RegisterHandler(fsm.StepAwaitingLabType, b.handleLabType)
 	b.router.RegisterHandler(fsm.StepAwaitingLabNumber, b.handleLabNumber)
 	b.router.RegisterHandler(fsm.StepAwaitingLabAuditorium, b.handleLabAuditorium)
@@ -76,9 +79,17 @@ func (b *telegramBot) Start(ctx context.Context) {
 	b.router.RegisterHandler(fsm.StepAwaitingLabWeekday, b.handleWeekday)
 	b.router.RegisterHandler(fsm.StepAwaitingLabLessons, b.handleLessons)
 	b.router.RegisterHandler(fsm.StepAwaitingSubCreationConfirmation, b.handleSubCreationConfirmation)
+
 	b.router.RegisterHandler(fsm.StepAwaitingListingSubsAction, b.handleListingSubsAction)
+
 	b.router.RegisterHandler(fsm.StepAwaitingFeedbackMsg, b.handleFeedbackMsgText)
 	b.router.RegisterHandler(fsm.StepAwaitingFeedbackReaction, b.handleFeedbackReaction)
+
+	b.router.RegisterHandler(fsm.StepAwaitingTeacherAuditorium, b.handleTeacherAuditorium)
+	b.router.RegisterHandler(fsm.StepAwaitingTeacherWeekParity, b.handleTeacherWeekParity)
+	b.router.RegisterHandler(fsm.StepAwaitingTeacherWeekday, b.handleTeacherWeekday)
+	b.router.RegisterHandler(fsm.StepAwaitingTeacherLesson, b.handleTeacherLesson)
+	b.router.RegisterHandler(fsm.StepAwaitingTeacherSurname, b.handleTeacherSurname)
 	go b.api.Start(ctx)
 }
 

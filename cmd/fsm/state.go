@@ -19,6 +19,11 @@ const (
 	StepAwaitingListingSubsAction       ConversationStep = "awaiting_listing_action"
 	StepAwaitingFeedbackMsg             ConversationStep = "awaiting_feedback_msg"
 	StepAwaitingFeedbackReaction        ConversationStep = "awaiting_feedback_reaction"
+	StepAwaitingTeacherAuditorium       ConversationStep = "awaiting_teacher_auditorium"
+	StepAwaitingTeacherWeekParity       ConversationStep = "awaiting_teacher_week_parity"
+	StepAwaitingTeacherWeekday          ConversationStep = "awaiting_teacher_weekday"
+	StepAwaitingTeacherLesson           ConversationStep = "awaiting_teacher_lesson"
+	StepAwaitingTeacherSurname          ConversationStep = "awaiting_teacher_surname"
 )
 
 type StateData interface {
@@ -47,6 +52,17 @@ type SubscriptionListingFlowData struct {
 
 func (d *SubscriptionListingFlowData) StateData() {}
 
+type TeacherReportFlowData struct {
+	UserID     int64
+	Auditorium int
+	WeekParity string // "even" или "odd"
+	Weekday    int
+	LessonNum  int
+	Surname    string
+}
+
+func (d *TeacherReportFlowData) StateData() {}
+
 func dataTypeForStep(step ConversationStep) StateData {
 	switch step {
 	case StepIdle, StepAwaitingFeedbackMsg, StepAwaitingFeedbackReaction:
@@ -61,6 +77,12 @@ func dataTypeForStep(step ConversationStep) StateData {
 		return &SubscriptionCreationFlowData{}
 	case StepAwaitingListingSubsAction:
 		return &SubscriptionListingFlowData{}
+	case StepAwaitingTeacherAuditorium,
+		StepAwaitingTeacherWeekParity,
+		StepAwaitingTeacherWeekday,
+		StepAwaitingTeacherLesson,
+		StepAwaitingTeacherSurname:
+		return &TeacherReportFlowData{}
 	}
 	return nil
 }
